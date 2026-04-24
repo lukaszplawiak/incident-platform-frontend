@@ -10,7 +10,7 @@ import { AuthResponse, JwtPayload } from '../models/auth.model';
 })
 export class AuthService {
 
-private readonly router = inject(Router);
+  private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
 
   private readonly tokenSignal = signal<string | null>(

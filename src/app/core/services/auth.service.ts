@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
@@ -9,6 +9,9 @@ import { AuthResponse, JwtPayload } from '../models/auth.model';
   providedIn: 'root'
 })
 export class AuthService {
+
+private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
 
   private readonly tokenSignal = signal<string | null>(
     sessionStorage.getItem(environment.tokenKey)
@@ -36,10 +39,7 @@ export class AuthService {
 
   private autoLogoutTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(
-    private readonly router: Router,
-    private readonly http: HttpClient
-  ) {
+  constructor() {
     if (this.tokenSignal()) {
       this.scheduleAutoLogout();
     }

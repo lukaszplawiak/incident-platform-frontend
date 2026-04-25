@@ -1,3 +1,4 @@
+        // Rollback
 import { Injectable, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { timer } from 'rxjs';
@@ -5,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { IncidentService } from './incident.service';
+import { LoggerService } from './logger.service';
 import { IncidentWebSocketEvent } from '../models/incident.model';
 
 export type ConnectionState =
@@ -20,6 +22,7 @@ export class WebSocketService implements OnDestroy {
 
   private readonly authService = inject(AuthService);
   private readonly incidentService = inject(IncidentService);
+  private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly _connectionState = signal<ConnectionState>('DISCONNECTED');
@@ -41,13 +44,18 @@ export class WebSocketService implements OnDestroy {
     }
 
     const token = this.authService.getToken();
-    if (!token) return;
+    if (!token) {
+      this.logger.warn('WebSocket connect called without valid token');
+      return;
+    }
 
+    this.logger.info('WebSocket connecting', { url: environment.wsUrl });
     this._connectionState.set('CONNECTING');
     this.createAndActivateClient(token);
   }
 
   disconnect(): void {
+    this.logger.info('WebSocket disconnecting');
     this.cleanup();
     this._connectionState.set('DISCONNECTED');
     this.reconnectAttempts = 0;
@@ -60,31 +68,32 @@ export class WebSocketService implements OnDestroy {
   private createAndActivateClient(token: string): void {
     this.stompClient = new Client({
       brokerURL: environment.wsUrl,
-
       connectHeaders: {
         Authorization: `Bearer ${token}`
       },
-
       heartbeatIncoming: 10_000,
       heartbeatOutgoing: 10_000,
-
       reconnectDelay: 0,
 
       onConnect: () => {
         this._connectionState.set('CONNECTED');
         this.reconnectAttempts = 0;
+        this.logger.info('WebSocket connected');
         this.subscribeToIncidents();
       },
 
       onDisconnect: () => {
         this.subscription = null;
+        this.logger.warn('WebSocket disconnected', {
+          attempts: this.reconnectAttempts
+        });
         if (this._connectionState() !== 'DISCONNECTED') {
           this.scheduleReconnect();
         }
       },
 
       onStompError: () => {
-        // STOMP error — auto-reconnect handled by onDisconnect
+        this.logger.warn('WebSocket STOMP error occurred');
       }
     });
 
@@ -100,19 +109,25 @@ export class WebSocketService implements OnDestroy {
     this.reconnectAttempts++;
     this._connectionState.set('RECONNECTING');
 
+    this.logger.info('WebSocket scheduling reconnect', {
+      attempt: this.reconnectAttempts,
+      delayMs: delay
+    });
+
     timer(delay).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       const freshToken = this.authService.getToken();
 
       if (!freshToken || !this.authService.isAuthenticated()) {
+        this.logger.warn('WebSocket reconnect aborted — token expired');
         this.disconnect();
         return;
       }
 
+      this.logger.info('WebSocket reconnecting with fresh token');
       this.cleanup();
       this._connectionState.set('CONNECTING');
-
       this.createAndActivateClient(freshToken);
     });
   }
@@ -124,11 +139,18 @@ export class WebSocketService implements OnDestroy {
       '/topic/incidents',
       (message: IMessage) => this.handleIncidentEvent(message)
     );
+
+    this.logger.debug('WebSocket subscribed to /topic/incidents');
   }
 
   private handleIncidentEvent(message: IMessage): void {
     try {
       const event = JSON.parse(message.body) as IncidentWebSocketEvent;
+
+      this.logger.debug('WebSocket event received', {
+        eventType: event.eventType,
+        incidentId: event.incident.id
+      });
 
       switch (event.eventType) {
         case 'CREATED':
@@ -140,7 +162,7 @@ export class WebSocketService implements OnDestroy {
           break;
       }
     } catch {
-      // Invalid message format — ignore silently
+      this.logger.warn('WebSocket received invalid message — parse error');
     }
   }
 

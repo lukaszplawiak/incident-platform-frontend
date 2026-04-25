@@ -1,0 +1,35 @@
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+
+  &--critical {
+    background-color: #fde8e8;
+    color: #c53030;
+    border: 1px solid #fc8181;
+  }
+
+  &--high {
+    background-color: #fef3e2;
+    color: #c05621;
+    border: 1px solid #f6ad55;
+  }
+
+  &--medium {
+    background-color: #fefce8;
+    color: #975a16;
+    border: 1px solid #f6e05e;
+  }
+
+  &--low {
+    background-color: #f0fff4;
+    color: #276749;
+    border: 1px solid #68d391;
+  }
+}

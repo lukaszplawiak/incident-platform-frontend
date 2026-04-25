@@ -6,10 +6,10 @@ import { IncidentStatus } from '../../../core/models/incident.model';
   selector: 'app-status-badge',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './status-badge.component.html',
-  styleUrl: './status-badge.component.scss'
+  templateUrl: './status-badge.html',
+  styleUrl: './status-badge.scss'
 })
-export class StatusBadgeComponent {
+export class StatusBadge {
 
   @Input({ required: true }) status!: IncidentStatus;
 

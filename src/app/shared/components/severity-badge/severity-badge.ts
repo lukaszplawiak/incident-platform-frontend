@@ -6,10 +6,10 @@ import { IncidentSeverity } from '../../../core/models/incident.model';
   selector: 'app-severity-badge',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './severity-badge.component.html',
-  styleUrl: './severity-badge.component.scss'
+  templateUrl: './severity-badge.html',
+  styleUrl: './severity-badge.scss'
 })
-export class SeverityBadgeComponent {
+export class SeverityBadge {
 
   @Input({ required: true }) severity!: IncidentSeverity;
 

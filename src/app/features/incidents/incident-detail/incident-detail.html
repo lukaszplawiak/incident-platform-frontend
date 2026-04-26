@@ -1,1 +1,125 @@
-<p>incident-detail works!</p>
+<div class="incident-detail">
+
+  <button class="incident-detail__back" (click)="onBack()">
+    ← Back to Dashboard
+  </button>
+
+  @if (loading()) {
+    <div class="incident-detail__loading" role="status">
+      <div class="incident-detail__spinner"></div>
+      <span>Loading incident...</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="incident-detail__error" role="alert">
+      ⚠️ {{ error() }}
+    </div>
+  }
+
+  @if (incident(); as inc) {
+    <div class="incident-detail__card">
+
+      <div class="incident-detail__header">
+        <div class="incident-detail__badges">
+          <app-severity-badge [severity]="inc.severity" />
+          <app-status-badge [status]="inc.status" />
+        </div>
+        <h1 class="incident-detail__title">{{ inc.title }}</h1>
+        <p class="incident-detail__description">{{ inc.description }}</p>
+      </div>
+
+      <div class="incident-detail__actions">
+        @if (canAcknowledge) {
+          <button class="incident-detail__btn incident-detail__btn--ack"
+                  (click)="onAcknowledge()">
+            ✓ Acknowledge
+          </button>
+        }
+        @if (canResolve) {
+          <button class="incident-detail__btn incident-detail__btn--resolve"
+                  (click)="onResolve()">
+            ✓ Resolve
+          </button>
+        }
+        @if (canClose) {
+          <button class="incident-detail__btn incident-detail__btn--close"
+                  (click)="onClose()">
+            ✕ Close
+          </button>
+        }
+      </div>
+
+      <div class="incident-detail__meta">
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Source</span>
+          <span class="incident-detail__meta-value">{{ inc.source }}</span>
+        </div>
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Source Type</span>
+          <span class="incident-detail__meta-value">{{ inc.sourceType }}</span>
+        </div>
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Duration</span>
+          <span class="incident-detail__meta-value">{{ duration }}</span>
+        </div>
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Opened At</span>
+          <span class="incident-detail__meta-value">
+            {{ inc.openedAt | date:'yyyy-MM-dd HH:mm:ss' }}
+          </span>
+        </div>
+
+        @if (inc.acknowledgedAt) {
+          <div class="incident-detail__meta-group">
+            <span class="incident-detail__meta-label">Acknowledged At</span>
+            <span class="incident-detail__meta-value">
+              {{ inc.acknowledgedAt | date:'yyyy-MM-dd HH:mm:ss' }}
+            </span>
+          </div>
+        }
+
+        @if (inc.resolvedAt) {
+          <div class="incident-detail__meta-group">
+            <span class="incident-detail__meta-label">Resolved At</span>
+            <span class="incident-detail__meta-value">
+              {{ inc.resolvedAt | date:'yyyy-MM-dd HH:mm:ss' }}
+            </span>
+          </div>
+        }
+
+        @if (inc.mttaSeconds !== null) {
+          <div class="incident-detail__meta-group">
+            <span class="incident-detail__meta-label">MTTA</span>
+            <span class="incident-detail__meta-value">
+              {{ inc.mttaSeconds }}s
+            </span>
+          </div>
+        }
+
+        @if (inc.mttrSeconds !== null) {
+          <div class="incident-detail__meta-group">
+            <span class="incident-detail__meta-label">MTTR</span>
+            <span class="incident-detail__meta-value">
+              {{ inc.mttrSeconds }}s
+            </span>
+          </div>
+        }
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Fingerprint</span>
+          <span class="incident-detail__meta-value incident-detail__meta-value--mono">
+            {{ inc.fingerprint }}
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  }
+
+</div>

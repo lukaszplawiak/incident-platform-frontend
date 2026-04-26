@@ -1,0 +1,36 @@
+<div class="incident-filter" [formGroup]="filterForm">
+
+  <div class="incident-filter__field">
+    <label class="incident-filter__label" for="severity">Severity</label>
+    <select id="severity"
+            class="incident-filter__select"
+            formControlName="severity">
+      @for (option of severityOptions; track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="incident-filter__field">
+    <label class="incident-filter__label" for="status">Status</label>
+    <select id="status"
+            class="incident-filter__select"
+            formControlName="status">
+      @for (option of statusOptions; track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="incident-filter__actions">
+    <button class="incident-filter__btn incident-filter__btn--apply"
+            (click)="onApply()">
+      🔍 Filter
+    </button>
+    <button class="incident-filter__btn incident-filter__btn--reset"
+            (click)="onReset()">
+      ✕ Reset
+    </button>
+  </div>
+
+</div>

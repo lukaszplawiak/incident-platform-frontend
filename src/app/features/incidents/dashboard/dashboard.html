@@ -46,12 +46,17 @@
   </header>
 
   <main class="dashboard__content">
+
+    <app-incident-filter
+      (filterChange)="onFilterChange($event)" />
+
     <app-incident-list
       [incidents]="incidents()"
       [loading]="loading()"
       [error]="error()"
       (acknowledge)="onAcknowledge($event)"
       (resolve)="onResolve($event)" />
+
   </main>
 
 </div>

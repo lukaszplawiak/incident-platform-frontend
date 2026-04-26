@@ -4,12 +4,13 @@ import { WebSocketService } from '../../../core/services/websocket.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { IncidentList } from '../incident-list/incident-list';
-import { UpdateStatusRequest } from '../../../core/models/incident.model';
+import { IncidentFilter } from '../incident-filter/incident-filter';
+import { IncidentFilter as IncidentFilterModel, UpdateStatusRequest } from '../../../core/models/incident.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [IncidentList],
+  imports: [IncidentList, IncidentFilter],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
@@ -33,38 +34,40 @@ export class Dashboard implements OnInit, OnDestroy {
     return open > 0 ? `(${open}) Incident Platform` : 'Incident Platform';
   });
 
-  readonly userId = this.authService.userId;
+  private currentFilter: IncidentFilterModel = {};
 
   ngOnInit(): void {
-    this.logger.info('Dashboard initialized — loading incidents and connecting WebSocket');
+    this.logger.info('Dashboard initialized');
     this.incidentService.loadIncidents();
     this.wsService.connect();
   }
 
   ngOnDestroy(): void {
     this.wsService.disconnect();
-    this.logger.info('Dashboard destroyed — WebSocket disconnected');
+    this.logger.info('Dashboard destroyed');
+  }
+
+  onFilterChange(filter: IncidentFilterModel): void {
+    this.currentFilter = filter;
+    this.logger.debug('Filter changed', { filter });
+    this.incidentService.loadIncidents(filter);
   }
 
   onAcknowledge(incidentId: string): void {
-    this.logger.info('Acknowledging incident', { incidentId });
     const request: UpdateStatusRequest = { status: 'ACKNOWLEDGED' };
     this.incidentService.updateStatus(incidentId, request);
   }
 
   onResolve(incidentId: string): void {
-    this.logger.info('Resolving incident', { incidentId });
     const request: UpdateStatusRequest = { status: 'RESOLVED' };
     this.incidentService.updateStatus(incidentId, request);
   }
 
   onRefresh(): void {
-    this.logger.debug('Manual refresh triggered');
-    this.incidentService.loadIncidents();
+    this.incidentService.loadIncidents(this.currentFilter);
   }
 
   onLogout(): void {
-    this.logger.info('User logout initiated');
     this.wsService.disconnect();
     this.authService.logout();
   }

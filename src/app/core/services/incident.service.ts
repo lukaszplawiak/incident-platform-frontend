@@ -11,6 +11,7 @@ import {
   UpdateStatusRequest
 } from '../models/incident.model';
 import { AuditEvent } from '../models/audit-event.model';
+import { Postmortem } from '../models/postmortem.model';
 
 @Injectable({
   providedIn: 'root'
@@ -32,6 +33,8 @@ export class IncidentService {
   private readonly _currentPage = signal<number>(0);
   private readonly _auditEvents = signal<AuditEvent[]>([]);
   private readonly _auditLoading = signal<boolean>(false);
+  private readonly _postmortem = signal<Postmortem | null>(null);
+  private readonly _postmortemLoading = signal<boolean>(false);
 
   readonly incidents = this._incidents.asReadonly();
   readonly selectedIncident = this._selectedIncident.asReadonly();
@@ -42,6 +45,8 @@ export class IncidentService {
   readonly currentPage = this._currentPage.asReadonly();
   readonly auditEvents = this._auditEvents.asReadonly();
   readonly auditLoading = this._auditLoading.asReadonly();
+  readonly postmortem = this._postmortem.asReadonly();
+  readonly postmortemLoading = this._postmortemLoading.asReadonly();
 
   readonly criticalCount = computed(() =>
     this._incidents().filter(i => i.severity === 'CRITICAL').length
@@ -209,5 +214,26 @@ export class IncidentService {
     if (selected?.id === id) {
       this._selectedIncident.set({ ...selected, status: newStatus });
     }
+  }
+
+  loadPostmortem(incidentId: string): void {
+  this._postmortemLoading.set(true);
+  this.logger.debug('Loading postmortem', { incidentId });
+
+  this.http.get<Postmortem>(
+    `${environment.apiUrl}/api/v1/postmortems/incident/${incidentId}`
+  ).pipe(
+    takeUntilDestroyed(this.destroyRef)
+  ).subscribe({
+    next: (postmortem) => {
+      this._postmortem.set(postmortem);
+      this._postmortemLoading.set(false);
+      this.logger.debug('Postmortem loaded', { incidentId });
+    },
+    error: () => {
+      this._postmortemLoading.set(false);
+      this.logger.debug('Postmortem not available', { incidentId });
+    }
+  });
   }
 }

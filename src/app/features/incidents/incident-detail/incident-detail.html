@@ -123,6 +123,12 @@
         [events]="auditEvents()"
         [loading]="auditLoading()" />
 
+    @if (postmortem()) {
+      <app-incident-postmortem
+        [postmortem]="postmortem()!"
+        [loading]="postmortemLoading()" />
+}
+
     </div>
   }
 

@@ -1,1 +1,57 @@
-<p>dashboard works!</p>
+<div class="dashboard">
+
+  <header class="dashboard__header">
+    <div class="dashboard__header-left">
+      <h1 class="dashboard__title">🔴 Incident Platform</h1>
+
+      <span class="dashboard__ws-badge"
+            [class.dashboard__ws-badge--connected]="wsState() === 'CONNECTED'"
+            [class.dashboard__ws-badge--reconnecting]="wsState() === 'RECONNECTING'"
+            [class.dashboard__ws-badge--disconnected]="wsState() === 'DISCONNECTED' || wsState() === 'CONNECTING'">
+        @switch (wsState()) {
+          @case ('CONNECTED') { 🟢 Live }
+          @case ('RECONNECTING') { 🟡 Reconnecting... }
+          @default { 🔴 Offline }
+        }
+      </span>
+    </div>
+
+    <div class="dashboard__header-right">
+      <div class="dashboard__stats">
+        <span class="dashboard__stat">
+          Total: <strong>{{ totalElements() }}</strong>
+        </span>
+        <span class="dashboard__stat dashboard__stat--open">
+          Open: <strong>{{ openCount() }}</strong>
+        </span>
+        @if (criticalCount() > 0) {
+          <span class="dashboard__stat dashboard__stat--critical">
+            Critical: <strong>{{ criticalCount() }}</strong>
+          </span>
+        }
+      </div>
+
+      <button class="dashboard__btn dashboard__btn--secondary"
+              (click)="onRefresh()"
+              [disabled]="loading()"
+              title="Refresh incidents">
+        ↻ Refresh
+      </button>
+
+      <button class="dashboard__btn dashboard__btn--logout"
+              (click)="onLogout()">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard__content">
+    <app-incident-list
+      [incidents]="incidents()"
+      [loading]="loading()"
+      [error]="error()"
+      (acknowledge)="onAcknowledge($event)"
+      (resolve)="onResolve($event)" />
+  </main>
+
+</div>

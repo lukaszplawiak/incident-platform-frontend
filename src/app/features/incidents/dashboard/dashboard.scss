@@ -1,0 +1,117 @@
+.dashboard {
+  min-height: 100vh;
+  background-color: #1a202c;
+  color: #e2e8f0;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background-color: #2d3748;
+    border-bottom: 1px solid #4a5568;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    color: #f7fafc;
+  }
+
+  &__ws-badge {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    background-color: #4a5568;
+    color: #a0aec0;
+
+    &--connected {
+      background-color: #1c4532;
+      color: #68d391;
+    }
+
+    &--reconnecting {
+      background-color: #744210;
+      color: #f6e05e;
+    }
+
+    &--disconnected {
+      background-color: #742a2a;
+      color: #fc8181;
+    }
+  }
+
+  &__stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  &__stat {
+    font-size: 13px;
+    color: #a0aec0;
+
+    strong {
+      color: #e2e8f0;
+      font-weight: 700;
+    }
+
+    &--open strong {
+      color: #63b3ed;
+    }
+
+    &--critical strong {
+      color: #fc8181;
+    }
+  }
+
+  &__btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:hover:not(:disabled) {
+      opacity: 0.85;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--secondary {
+      background-color: #4a5568;
+      color: #e2e8f0;
+    }
+
+    &--logout {
+      background-color: #742a2a;
+      color: #fed7d7;
+    }
+  }
+
+  &__content {
+    padding: 24px;
+  }
+}

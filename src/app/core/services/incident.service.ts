@@ -28,6 +28,7 @@ export class IncidentService {
   private readonly _loading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
   private readonly _totalElements = signal<number>(0);
+  private readonly _totalPages = signal<number>(0);
   private readonly _currentPage = signal<number>(0);
 
   readonly incidents = this._incidents.asReadonly();
@@ -35,6 +36,7 @@ export class IncidentService {
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly totalElements = this._totalElements.asReadonly();
+  readonly totalPages = this._totalPages.asReadonly();
   readonly currentPage = this._currentPage.asReadonly();
 
   readonly criticalCount = computed(() =>
@@ -63,6 +65,7 @@ export class IncidentService {
       next: (response) => {
         this._incidents.set(response.content);
         this._totalElements.set(response.totalElements);
+        this._totalPages.set(response.totalPages);
         this._currentPage.set(response.number);
         this._loading.set(false);
         this.logger.debug('Incidents loaded', {

@@ -119,6 +119,10 @@
 
       </div>
 
+      <app-incident-audit
+        [events]="auditEvents()"
+        [loading]="auditLoading()" />
+
     </div>
   }
 

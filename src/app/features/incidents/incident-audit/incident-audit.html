@@ -1,0 +1,48 @@
+<div class="audit-log">
+
+  <h2 class="audit-log__title">📋 Audit Log</h2>
+
+  @if (loading) {
+    <div class="audit-log__loading" role="status">
+      <div class="audit-log__spinner"></div>
+      <span>Loading audit log...</span>
+    </div>
+  }
+
+  @if (!loading && events.length === 0) {
+    <div class="audit-log__empty">
+      No audit events recorded yet.
+    </div>
+  }
+
+  @if (!loading && events.length > 0) {
+    <div class="audit-log__timeline">
+      @for (event of events; track event.id) {
+        <div class="audit-event" [class]="getEventClass(event.eventType)">
+
+          <div class="audit-event__dot"></div>
+
+          <div class="audit-event__content">
+
+            <div class="audit-event__header">
+              <span class="audit-event__icon">{{ getEventIcon(event.eventType) }}</span>
+              <span class="audit-event__type">{{ event.eventType }}</span>
+              <span class="audit-event__time">
+                {{ event.occurredAt | date:'yyyy-MM-dd HH:mm:ss' }}
+              </span>
+            </div>
+
+            <p class="audit-event__detail">{{ event.detail }}</p>
+
+            <div class="audit-event__meta">
+              <span class="audit-event__actor">{{ formatActor(event) }}</span>
+              <span class="audit-event__service">{{ event.sourceService }}</span>
+            </div>
+
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+</div>

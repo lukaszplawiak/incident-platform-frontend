@@ -1,0 +1,85 @@
+.incident-list {
+
+  &__error {
+    background-color: #742a2a;
+    border: 1px solid #fc8181;
+    color: #fed7d7;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 40px;
+    justify-content: center;
+    color: #a0aec0;
+    font-size: 14px;
+  }
+
+  &__spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #4a5568;
+    border-top-color: #63b3ed;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  &__empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #a0aec0;
+  }
+
+  &__empty-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  &__empty-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin: 0 0 8px;
+  }
+
+  &__empty-subtext {
+    font-size: 14px;
+    margin: 0;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #1a202c;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  &__header {
+    background-color: #2d3748;
+  }
+
+  &__th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &--actions {
+      text-align: right;
+    }
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

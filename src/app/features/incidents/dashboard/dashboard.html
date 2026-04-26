@@ -57,6 +57,13 @@
       (acknowledge)="onAcknowledge($event)"
       (resolve)="onResolve($event)" />
 
+    <app-incident-pagination
+      [currentPage]="currentPage()"
+      [totalPages]="totalPages()"
+      [totalElements]="totalElements()"
+      [loading]="loading()"
+      (pageChange)="onPageChange($event)" />
+
   </main>
 
 </div>

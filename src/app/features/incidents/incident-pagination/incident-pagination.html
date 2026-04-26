@@ -1,0 +1,39 @@
+@if (hasMultiplePages) {
+  <div class="pagination">
+
+    <span class="pagination__info">
+      Page {{ displayPage }} of {{ totalPages }}
+      ({{ totalElements }} total)
+    </span>
+
+    <div class="pagination__controls">
+
+      <button class="pagination__btn"
+              [class.pagination__btn--disabled]="isFirstPage || loading"
+              [disabled]="isFirstPage || loading"
+              (click)="onPrevious()"
+              title="Previous page">
+        ← Prev
+      </button>
+
+      @for (page of visiblePages; track page) {
+        <button class="pagination__btn pagination__btn--page"
+                [class.pagination__btn--active]="page === currentPage"
+                [disabled]="loading"
+                (click)="onPageSelect(page)">
+          {{ page + 1 }}
+        </button>
+      }
+
+      <button class="pagination__btn"
+              [class.pagination__btn--disabled]="isLastPage || loading"
+              [disabled]="isLastPage || loading"
+              (click)="onNext()"
+              title="Next page">
+        Next →
+      </button>
+
+    </div>
+
+  </div>
+}

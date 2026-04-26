@@ -6,11 +6,12 @@ import { LoggerService } from '../../../core/services/logger.service';
 import { IncidentList } from '../incident-list/incident-list';
 import { IncidentFilter } from '../incident-filter/incident-filter';
 import { IncidentFilter as IncidentFilterModel, UpdateStatusRequest } from '../../../core/models/incident.model';
+import { IncidentPagination } from '../incident-pagination/incident-pagination';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [IncidentList, IncidentFilter],
+  imports: [IncidentList, IncidentFilter, IncidentPagination],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
@@ -28,6 +29,8 @@ export class Dashboard implements OnInit, OnDestroy {
   readonly criticalCount = this.incidentService.criticalCount;
   readonly openCount = this.incidentService.openCount;
   readonly wsState = this.wsService.connectionState;
+  readonly totalPages = this.incidentService.totalPages;
+  readonly currentPage = this.incidentService.currentPage;
 
   readonly pageTitle = computed(() => {
     const open = this.openCount();
@@ -74,5 +77,10 @@ export class Dashboard implements OnInit, OnDestroy {
 
   onDismissError(): void {
     this.incidentService.clearError();
+  }
+
+  onPageChange(page: number): void {
+  this.logger.debug('Page changed', { page });
+  this.incidentService.loadIncidents({ ...this.currentFilter, page });
   }
 }

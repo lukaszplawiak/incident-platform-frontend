@@ -7,11 +7,12 @@ import { LoggerService } from '../../../core/services/logger.service';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { UpdateStatusRequest, IncidentStatus } from '../../../core/models/incident.model';
+import { IncidentAudit } from '../incident-audit/incident-audit';
 
 @Component({
   selector: 'app-incident-detail',
   standalone: true,
-  imports: [DatePipe, SeverityBadge, StatusBadge],
+  imports: [DatePipe, SeverityBadge, StatusBadge, IncidentAudit],
   templateUrl: './incident-detail.html',
   styleUrl: './incident-detail.scss'
 })
@@ -26,6 +27,8 @@ export class IncidentDetail implements OnInit {
   readonly incident = this.incidentService.selectedIncident;
   readonly loading = this.incidentService.loading;
   readonly error = this.incidentService.error;
+  readonly auditEvents = this.incidentService.auditEvents;
+  readonly auditLoading = this.incidentService.auditLoading;
 
   ngOnInit(): void {
     if (!this.id) {
@@ -35,6 +38,7 @@ export class IncidentDetail implements OnInit {
     }
     this.logger.info('Loading incident detail', { id: this.id });
     this.incidentService.loadIncident(this.id);
+    this.incidentService.loadAuditLog(this.id);
   }
 
   onAcknowledge(): void {

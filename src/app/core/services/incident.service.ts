@@ -30,6 +30,8 @@ export class IncidentService {
   private readonly _totalElements = signal<number>(0);
   private readonly _totalPages = signal<number>(0);
   private readonly _currentPage = signal<number>(0);
+  private readonly _auditEvents = signal<AuditEvent[]>([]);
+  private readonly _auditLoading = signal<boolean>(false);
 
   readonly incidents = this._incidents.asReadonly();
   readonly selectedIncident = this._selectedIncident.asReadonly();
@@ -38,6 +40,8 @@ export class IncidentService {
   readonly totalElements = this._totalElements.asReadonly();
   readonly totalPages = this._totalPages.asReadonly();
   readonly currentPage = this._currentPage.asReadonly();
+  readonly auditEvents = this._auditEvents.asReadonly();
+  readonly auditLoading = this._auditLoading.asReadonly();
 
   readonly criticalCount = computed(() =>
     this._incidents().filter(i => i.severity === 'CRITICAL').length
@@ -145,7 +149,7 @@ export class IncidentService {
   }
 
   loadAuditLog(incidentId: string): void {
-    this._loading.set(true);
+    this._auditLoading.set(true);
 
     this.logger.debug('Loading audit log', { incidentId });
 
@@ -154,13 +158,14 @@ export class IncidentService {
     ).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
-      next: () => {
-        this._loading.set(false);
-        this.logger.debug('Audit log loaded', { incidentId });
+      next: (events) => {
+        this._auditEvents.set(events);
+        this._auditLoading.set(false);
+        this.logger.debug('Audit log loaded', { incidentId, count: events.length });
       },
       error: (err: Error) => {
         this._error.set(err.message);
-        this._loading.set(false);
+        this._auditLoading.set(false);
         this.logger.error('Failed to load audit log', err, { incidentId });
       }
     });

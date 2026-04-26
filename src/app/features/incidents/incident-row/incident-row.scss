@@ -1,0 +1,80 @@
+.incident-row {
+  border-bottom: 1px solid #2d3748;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background-color: #2d3748;
+  }
+
+  &--critical {
+    border-left: 3px solid #fc8181;
+  }
+
+  &__cell {
+    padding: 14px 16px;
+    color: #e2e8f0;
+    font-size: 14px;
+    vertical-align: middle;
+
+    &--title {
+      max-width: 300px;
+    }
+
+    &--age {
+      white-space: nowrap;
+      color: #a0aec0;
+      font-size: 13px;
+    }
+
+    &--actions {
+      white-space: nowrap;
+      text-align: right;
+    }
+  }
+
+  &__title {
+    display: block;
+    color: #e2e8f0;
+    text-decoration: none;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover {
+      color: #63b3ed;
+    }
+  }
+
+  &__source {
+    display: block;
+    font-size: 12px;
+    color: #718096;
+    margin-top: 2px;
+  }
+
+  &__action {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: opacity 0.15s;
+
+    &:hover {
+      opacity: 0.85;
+    }
+
+    &--ack {
+      background-color: #2b6cb0;
+      color: #fff;
+    }
+
+    &--resolve {
+      background-color: #276749;
+      color: #fff;
+    }
+  }
+}

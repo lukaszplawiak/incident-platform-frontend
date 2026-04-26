@@ -1,0 +1,46 @@
+<div class="incident-list">
+
+  @if (error) {
+    <div class="incident-list__error" role="alert">
+      ⚠️ {{ error }}
+    </div>
+  }
+
+  @if (loading) {
+    <div class="incident-list__loading" role="status" aria-label="Loading incidents">
+      <div class="incident-list__spinner"></div>
+      <span>Loading incidents...</span>
+    </div>
+  }
+
+  @if (isEmpty) {
+    <div class="incident-list__empty">
+      <span class="incident-list__empty-icon">✅</span>
+      <p class="incident-list__empty-text">No active incidents</p>
+      <p class="incident-list__empty-subtext">All systems operational</p>
+    </div>
+  }
+
+  @if (!loading && incidents.length > 0) {
+    <table class="incident-list__table">
+      <thead>
+        <tr class="incident-list__header">
+          <th class="incident-list__th">Severity</th>
+          <th class="incident-list__th">Title</th>
+          <th class="incident-list__th">Status</th>
+          <th class="incident-list__th">Age</th>
+          <th class="incident-list__th incident-list__th--actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (incident of incidents; track trackByIncidentId($index, incident)) {
+          <app-incident-row
+            [incident]="incident"
+            (acknowledge)="onAcknowledge($event)"
+            (resolve)="onResolve($event)" />
+        }
+      </tbody>
+    </table>
+  }
+
+</div>

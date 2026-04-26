@@ -1,0 +1,42 @@
+<tr class="incident-row" [class.incident-row--critical]="incident.severity === 'CRITICAL'">
+
+  <td class="incident-row__cell">
+    <app-severity-badge [severity]="incident.severity" />
+  </td>
+
+  <td class="incident-row__cell incident-row__cell--title">
+    <a [routerLink]="['/incidents', incident.id]" class="incident-row__title">
+      {{ incident.title }}
+    </a>
+    <span class="incident-row__source">{{ incident.source }}</span>
+  </td>
+
+  <td class="incident-row__cell">
+    <app-status-badge [status]="incident.status" />
+  </td>
+
+  <td class="incident-row__cell incident-row__cell--age">
+    {{ age }}
+  </td>
+
+  <td class="incident-row__cell incident-row__cell--actions">
+    @if (canAcknowledge) {
+      <button
+        class="incident-row__action incident-row__action--ack"
+        (click)="onAcknowledge()"
+        title="Acknowledge incident">
+        ACK
+      </button>
+    }
+
+    @if (canResolve) {
+      <button
+        class="incident-row__action incident-row__action--resolve"
+        (click)="onResolve()"
+        title="Resolve incident">
+        Resolve
+      </button>
+    }
+  </td>
+
+</tr>

@@ -8,11 +8,12 @@ import { SeverityBadge } from '../../../shared/components/severity-badge/severit
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { UpdateStatusRequest, IncidentStatus } from '../../../core/models/incident.model';
 import { IncidentAudit } from '../incident-audit/incident-audit';
+import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
 
 @Component({
   selector: 'app-incident-detail',
   standalone: true,
-  imports: [DatePipe, SeverityBadge, StatusBadge, IncidentAudit],
+  imports: [DatePipe, SeverityBadge, StatusBadge, IncidentAudit, IncidentPostmortem],
   templateUrl: './incident-detail.html',
   styleUrl: './incident-detail.scss'
 })
@@ -29,6 +30,8 @@ export class IncidentDetail implements OnInit {
   readonly error = this.incidentService.error;
   readonly auditEvents = this.incidentService.auditEvents;
   readonly auditLoading = this.incidentService.auditLoading;
+  readonly postmortem = this.incidentService.postmortem;
+  readonly postmortemLoading = this.incidentService.postmortemLoading;
 
   ngOnInit(): void {
     if (!this.id) {
@@ -39,6 +42,7 @@ export class IncidentDetail implements OnInit {
     this.logger.info('Loading incident detail', { id: this.id });
     this.incidentService.loadIncident(this.id);
     this.incidentService.loadAuditLog(this.id);
+    this.incidentService.loadPostmortem(this.id);
   }
 
   onAcknowledge(): void {

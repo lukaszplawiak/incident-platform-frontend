@@ -1,0 +1,83 @@
+<div class="postmortem">
+
+  <div class="postmortem__header">
+    <h2 class="postmortem__title">📝 Postmortem</h2>
+    <span class="postmortem__status"
+          [class]="getStatusClass(postmortem.status)">
+      {{ getStatusLabel(postmortem.status) }}
+    </span>
+  </div>
+
+  @if (postmortem.status === 'GENERATING') {
+    <div class="postmortem__generating">
+      <div class="postmortem__spinner"></div>
+      <p>AI is generating the postmortem report. This may take a moment...</p>
+    </div>
+  }
+
+  @if (postmortem.status === 'FAILED') {
+    <div class="postmortem__failed">
+      ❌ Postmortem generation failed. The system will retry automatically.
+    </div>
+  }
+
+  @if (postmortem.status === 'DRAFT' || postmortem.status === 'REVIEWED') {
+
+    @if (postmortem.generatedAt) {
+      <p class="postmortem__generated-at">
+        Generated: {{ postmortem.generatedAt | date:'yyyy-MM-dd HH:mm' }}
+      </p>
+    }
+
+    @if (postmortem.summary) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">📋 Summary</h3>
+        <p class="postmortem__section-content">{{ postmortem.summary }}</p>
+      </div>
+    }
+
+    @if (postmortem.rootCause) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">🔍 Root Cause</h3>
+        <p class="postmortem__section-content">{{ postmortem.rootCause }}</p>
+      </div>
+    }
+
+    @if (postmortem.timeline) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">⏱️ Timeline</h3>
+        <p class="postmortem__section-content postmortem__section-content--pre">{{ postmortem.timeline }}</p>
+      </div>
+    }
+
+    @if (postmortem.impact) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">💥 Impact</h3>
+        <p class="postmortem__section-content">{{ postmortem.impact }}</p>
+      </div>
+    }
+
+    @if (postmortem.resolution) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">✔️ Resolution</h3>
+        <p class="postmortem__section-content">{{ postmortem.resolution }}</p>
+      </div>
+    }
+
+    @if (postmortem.actionItems) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">✅ Action Items</h3>
+        <p class="postmortem__section-content postmortem__section-content--pre">{{ postmortem.actionItems }}</p>
+      </div>
+    }
+
+    @if (postmortem.lessonsLearned) {
+      <div class="postmortem__section">
+        <h3 class="postmortem__section-title">💡 Lessons Learned</h3>
+        <p class="postmortem__section-content">{{ postmortem.lessonsLearned }}</p>
+      </div>
+    }
+
+  }
+
+</div>

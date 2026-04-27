@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { IncidentService } from '../../../core/services/incident.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { IncidentList } from '../incident-list/incident-list';
 import { IncidentFilter } from '../incident-filter/incident-filter';
@@ -27,6 +28,7 @@ export class Dashboard implements OnInit, OnDestroy {
   private readonly incidentService = inject(IncidentService);
   private readonly wsService = inject(WebSocketService);
   readonly authService = inject(AuthService);
+  private readonly idleService = inject(IdleService);
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -75,10 +77,12 @@ export class Dashboard implements OnInit, OnDestroy {
     this.lastRefreshedAt.set(new Date());
     this.wsService.connect();
     this.startAutoRefresh();
+    this.idleService.startWatching();
   }
 
   ngOnDestroy(): void {
     this.wsService.disconnect();
+    this.idleService.stopWatching();
     this.logger.info('Dashboard destroyed');
   }
 
@@ -136,6 +140,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   onLogout(): void {
     this.wsService.disconnect();
+    this.idleService.stopWatching();
     this.authService.logout();
   }
 

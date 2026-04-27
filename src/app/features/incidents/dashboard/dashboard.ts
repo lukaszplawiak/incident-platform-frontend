@@ -1,4 +1,7 @@
-import { Component, OnInit, OnDestroy, inject, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed, signal, DestroyRef } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { interval } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { IncidentService } from '../../../core/services/incident.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -15,7 +18,7 @@ import {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [IncidentList, IncidentFilter, IncidentPagination],
+  imports: [IncidentList, IncidentFilter, IncidentPagination, DatePipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
@@ -25,6 +28,9 @@ export class Dashboard implements OnInit, OnDestroy {
   private readonly wsService = inject(WebSocketService);
   private readonly authService = inject(AuthService);
   private readonly logger = inject(LoggerService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private readonly AUTO_REFRESH_INTERVAL_MS = 30_000;
 
   readonly incidents = this.incidentService.incidents;
   readonly loading = this.incidentService.loading;
@@ -37,17 +43,25 @@ export class Dashboard implements OnInit, OnDestroy {
   readonly wsState = this.wsService.connectionState;
   readonly sortState = this.incidentService.sortState;
 
+  readonly lastRefreshedAt = signal<Date | null>(null);
+
   readonly pageTitle = computed(() => {
     const open = this.openCount();
     return open > 0 ? `(${open}) Incident Platform` : 'Incident Platform';
   });
+
+  readonly isAutoRefreshActive = computed(() =>
+    this.wsState() !== 'CONNECTED'
+  );
 
   private currentFilter: IncidentFilterModel = {};
 
   ngOnInit(): void {
     this.logger.info('Dashboard initialized');
     this.incidentService.loadIncidents();
+    this.lastRefreshedAt.set(new Date());
     this.wsService.connect();
+    this.startAutoRefresh();
   }
 
   ngOnDestroy(): void {
@@ -55,10 +69,27 @@ export class Dashboard implements OnInit, OnDestroy {
     this.logger.info('Dashboard destroyed');
   }
 
+  private startAutoRefresh(): void {
+    interval(this.AUTO_REFRESH_INTERVAL_MS).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      if (this.wsState() !== 'CONNECTED') {
+        this.logger.info('Auto-refresh triggered — WebSocket offline', {
+          wsState: this.wsState()
+        });
+        this.incidentService.loadIncidents(this.currentFilter);
+        this.lastRefreshedAt.set(new Date());
+      } else {
+        this.logger.debug('Auto-refresh skipped — WebSocket connected');
+      }
+    });
+  }
+
   onFilterChange(filter: IncidentFilterModel): void {
     this.currentFilter = filter;
     this.logger.debug('Filter changed', { filter });
     this.incidentService.loadIncidents(filter);
+    this.lastRefreshedAt.set(new Date());
   }
 
   onPageChange(page: number): void {
@@ -82,7 +113,9 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   onRefresh(): void {
+    this.logger.debug('Manual refresh triggered');
     this.incidentService.loadIncidents(this.currentFilter);
+    this.lastRefreshedAt.set(new Date());
   }
 
   onLogout(): void {

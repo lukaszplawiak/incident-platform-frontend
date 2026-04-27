@@ -14,9 +14,22 @@
           @default { 🔴 Offline }
         }
       </span>
+
+      @if (isAutoRefreshActive()) {
+        <span class="dashboard__auto-refresh" title="Auto-refreshing every 30s">
+          🔄 Auto-refresh active
+        </span>
+      }
     </div>
 
     <div class="dashboard__header-right">
+
+      @if (lastRefreshedAt()) {
+        <span class="dashboard__last-refresh">
+          Updated: {{ lastRefreshedAt() | date:'HH:mm:ss' }}
+        </span>
+      }
+
       <div class="dashboard__stats">
         <span class="dashboard__stat">
           Total: <strong>{{ totalElements() }}</strong>

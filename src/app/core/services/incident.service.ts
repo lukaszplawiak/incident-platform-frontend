@@ -12,6 +12,7 @@ import {
 } from '../models/incident.model';
 import { AuditEvent } from '../models/audit-event.model';
 import { Postmortem } from '../models/postmortem.model';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Injectable({
   providedIn: 'root'
@@ -21,6 +22,7 @@ export class IncidentService {
   private readonly http = inject(HttpClient);
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toastService = inject(ToastService);
 
   private readonly apiUrl = `${environment.apiUrl}/api/v1/incidents`;
 
@@ -136,6 +138,7 @@ export class IncidentService {
         if (this._selectedIncident()?.id === updated.id) {
           this._selectedIncident.set(updated);
         }
+        this.toastService.success('Status updated successfully');
         this.logger.info('Incident status updated', {
           id,
           status: updated.status
@@ -145,6 +148,7 @@ export class IncidentService {
         this._incidents.set(previousIncidents);
         this._selectedIncident.set(previousSelected);
         this._error.set(err.message);
+        this.toastService.error(err.message);
         this.logger.error('Failed to update incident status — rolling back', err, {
           id,
           attemptedStatus: request.status

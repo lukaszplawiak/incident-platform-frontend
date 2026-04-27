@@ -3,16 +3,19 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
 import { LoggerService } from './logger.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 import {
   Incident,
   IncidentFilter,
   IncidentStatus,
   PageResponse,
-  UpdateStatusRequest
+  UpdateStatusRequest,
+  SortColumn,
+  SortDirection,
+  SortState
 } from '../models/incident.model';
 import { AuditEvent } from '../models/audit-event.model';
 import { Postmortem } from '../models/postmortem.model';
-import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Injectable({
   providedIn: 'root'
@@ -37,6 +40,7 @@ export class IncidentService {
   private readonly _auditLoading = signal<boolean>(false);
   private readonly _postmortem = signal<Postmortem | null>(null);
   private readonly _postmortemLoading = signal<boolean>(false);
+  private readonly _sortState = signal<SortState | null>(null);
 
   readonly incidents = this._incidents.asReadonly();
   readonly selectedIncident = this._selectedIncident.asReadonly();
@@ -49,6 +53,7 @@ export class IncidentService {
   readonly auditLoading = this._auditLoading.asReadonly();
   readonly postmortem = this._postmortem.asReadonly();
   readonly postmortemLoading = this._postmortemLoading.asReadonly();
+  readonly sortState = this._sortState.asReadonly();
 
   readonly criticalCount = computed(() =>
     this._incidents().filter(i => i.severity === 'CRITICAL').length
@@ -61,6 +66,7 @@ export class IncidentService {
   loadIncidents(filter?: IncidentFilter): void {
     this._loading.set(true);
     this._error.set(null);
+    this._sortState.set(null);
 
     this.logger.debug('Loading incidents', { filter });
 
@@ -120,10 +126,7 @@ export class IncidentService {
 
     this.applyOptimisticUpdate(id, request.status);
 
-    this.logger.info('Updating incident status', {
-      id,
-      newStatus: request.status
-    });
+    this.logger.info('Updating incident status', { id, newStatus: request.status });
 
     this.http.patch<Incident>(
       `${this.apiUrl}/${id}/status`,
@@ -138,11 +141,8 @@ export class IncidentService {
         if (this._selectedIncident()?.id === updated.id) {
           this._selectedIncident.set(updated);
         }
-        this.toastService.success('Status updated successfully');
-        this.logger.info('Incident status updated', {
-          id,
-          status: updated.status
-        });
+        this.toastService.success(`Status updated to ${updated.status}`);
+        this.logger.info('Incident status updated', { id, status: updated.status });
       },
       error: (err: Error) => {
         this._incidents.set(previousIncidents);
@@ -178,6 +178,73 @@ export class IncidentService {
         this.logger.error('Failed to load audit log', err, { incidentId });
       }
     });
+  }
+
+  loadPostmortem(incidentId: string): void {
+    this._postmortemLoading.set(true);
+    this.logger.debug('Loading postmortem', { incidentId });
+
+    this.http.get<Postmortem>(
+      `${environment.apiUrl}/api/v1/postmortems/incident/${incidentId}`
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (postmortem) => {
+        this._postmortem.set(postmortem);
+        this._postmortemLoading.set(false);
+        this.logger.debug('Postmortem loaded', { incidentId });
+      },
+      error: () => {
+        this._postmortemLoading.set(false);
+        this.logger.debug('Postmortem not available', { incidentId });
+      }
+    });
+  }
+
+  sortIncidents(column: SortColumn): void {
+    const current = this._sortState();
+
+    const direction: SortDirection =
+      current?.column === column && current.direction === 'asc'
+        ? 'desc'
+        : 'asc';
+
+    this._sortState.set({ column, direction });
+
+    this._incidents.update(incidents => {
+      return [...incidents].sort((a, b) => {
+        let aVal = '';
+        let bVal = '';
+
+        switch (column) {
+          case 'severity': {
+            const order: Record<string, number> = {
+              'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3
+            };
+            aVal = String(order[a.severity] ?? 99);
+            bVal = String(order[b.severity] ?? 99);
+            break;
+          }
+          case 'status':
+            aVal = a.status;
+            bVal = b.status;
+            break;
+          case 'openedAt':
+            aVal = a.openedAt;
+            bVal = b.openedAt;
+            break;
+          case 'title':
+            aVal = a.title.toLowerCase();
+            bVal = b.title.toLowerCase();
+            break;
+        }
+
+        const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return direction === 'asc' ? comparison : -comparison;
+      });
+    });
+
+    this.logger.debug('Incidents sorted', { column, direction });
   }
 
   addIncident(incident: Incident): void {
@@ -218,26 +285,5 @@ export class IncidentService {
     if (selected?.id === id) {
       this._selectedIncident.set({ ...selected, status: newStatus });
     }
-  }
-
-  loadPostmortem(incidentId: string): void {
-  this._postmortemLoading.set(true);
-  this.logger.debug('Loading postmortem', { incidentId });
-
-  this.http.get<Postmortem>(
-    `${environment.apiUrl}/api/v1/postmortems/incident/${incidentId}`
-  ).pipe(
-    takeUntilDestroyed(this.destroyRef)
-  ).subscribe({
-    next: (postmortem) => {
-      this._postmortem.set(postmortem);
-      this._postmortemLoading.set(false);
-      this.logger.debug('Postmortem loaded', { incidentId });
-    },
-    error: () => {
-      this._postmortemLoading.set(false);
-      this.logger.debug('Postmortem not available', { incidentId });
-    }
-  });
   }
 }

@@ -25,10 +25,26 @@
     <table class="incident-list__table">
       <thead>
         <tr class="incident-list__header">
-          <th class="incident-list__th">Severity</th>
-          <th class="incident-list__th">Title</th>
-          <th class="incident-list__th">Status</th>
-          <th class="incident-list__th">Age</th>
+          <th class="incident-list__th incident-list__th--sortable"
+              (click)="onSort('severity')"
+              title="Sort by severity">
+            Severity {{ getSortIcon('severity') }}
+          </th>
+          <th class="incident-list__th incident-list__th--sortable"
+              (click)="onSort('title')"
+              title="Sort by title">
+            Title {{ getSortIcon('title') }}
+          </th>
+          <th class="incident-list__th incident-list__th--sortable"
+              (click)="onSort('status')"
+              title="Sort by status">
+            Status {{ getSortIcon('status') }}
+          </th>
+          <th class="incident-list__th incident-list__th--sortable"
+              (click)="onSort('openedAt')"
+              title="Sort by age">
+            Age {{ getSortIcon('openedAt') }}
+          </th>
           <th class="incident-list__th incident-list__th--actions">Actions</th>
         </tr>
       </thead>

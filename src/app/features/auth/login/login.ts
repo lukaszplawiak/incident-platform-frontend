@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
 
 @Component({
@@ -14,6 +15,7 @@ import { LoggerService } from '../../../core/services/logger.service';
 export class Login {
 
   private readonly authService = inject(AuthService);
+  private readonly idleService = inject(IdleService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly logger = inject(LoggerService);
@@ -55,6 +57,8 @@ export class Login {
         this.loading.set(false);
         this.logger.info('Login successful');
 
+        this.idleService.stopWatching();
+
         const redirectUrl = this.getSafeRedirectUrl();
         this.router.navigateByUrl(redirectUrl);
       },
@@ -74,11 +78,9 @@ export class Login {
   private getSafeRedirectUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get('redirect');
-
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
       return redirect;
     }
-
     return '/incidents';
   }
 }

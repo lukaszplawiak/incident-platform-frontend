@@ -58,6 +58,21 @@
     }
   }
 
+  &__auto-refresh {
+    font-size: 11px;
+    color: #f6e05e;
+    background-color: #744210;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  &__last-refresh {
+    font-size: 11px;
+    color: #718096;
+  }
+
   &__stats {
     display: flex;
     gap: 16px;
@@ -114,4 +129,9 @@
   &__content {
     padding: 24px;
   }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

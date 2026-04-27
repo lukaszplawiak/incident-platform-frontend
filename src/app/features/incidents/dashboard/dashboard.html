@@ -54,8 +54,10 @@
       [incidents]="incidents()"
       [loading]="loading()"
       [error]="error()"
+      [sortState]="sortState()"
       (acknowledge)="onAcknowledge($event)"
-      (resolve)="onResolve($event)" />
+      (resolve)="onResolve($event)"
+      (sortChange)="onSort($event)" />
 
     <app-incident-pagination
       [currentPage]="currentPage()"

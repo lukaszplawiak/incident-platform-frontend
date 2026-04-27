@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Incident } from '../../../core/models/incident.model';
+import { Incident, SortColumn, SortState } from '../../../core/models/incident.model';
 import { IncidentRow } from '../incident-row/incident-row';
 
 @Component({
@@ -16,9 +16,11 @@ export class IncidentList {
   @Input({ required: true }) incidents!: Incident[];
   @Input() loading = false;
   @Input() error: string | null = null;
+  @Input() sortState: SortState | null = null;
 
   @Output() acknowledge = new EventEmitter<string>();
   @Output() resolve = new EventEmitter<string>();
+  @Output() sortChange = new EventEmitter<SortColumn>();
 
   get isEmpty(): boolean {
     return !this.loading && this.incidents.length === 0;
@@ -30,6 +32,15 @@ export class IncidentList {
 
   onResolve(incidentId: string): void {
     this.resolve.emit(incidentId);
+  }
+
+  onSort(column: SortColumn): void {
+    this.sortChange.emit(column);
+  }
+
+  getSortIcon(column: SortColumn): string {
+    if (this.sortState?.column !== column) return '↕';
+    return this.sortState.direction === 'asc' ? '↑' : '↓';
   }
 
   trackByIncidentId(index: number, incident: Incident): string {

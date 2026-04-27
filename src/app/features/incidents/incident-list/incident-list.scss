@@ -73,6 +73,16 @@
     color: #a0aec0;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    user-select: none;
+
+    &--sortable {
+      cursor: pointer;
+      transition: color 0.15s;
+
+      &:hover {
+        color: #e2e8f0;
+      }
+    }
 
     &--actions {
       text-align: right;

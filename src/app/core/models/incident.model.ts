@@ -22,17 +22,13 @@ export interface Incident {
   sourceType: string;
   fingerprint: string;
   alertId: string;
-
   openedAt: string;
   acknowledgedAt: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
-
   mttaSeconds: number | null;
   mttrSeconds: number | null;
-
   assignedTo: string | null;
-
   version: number;
 }
 
@@ -62,4 +58,12 @@ export interface IncidentWebSocketEvent {
   eventType: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED';
   incident: Incident;
   previousStatus?: IncidentStatus;
+}
+
+export type SortColumn = 'severity' | 'status' | 'openedAt' | 'title';
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortState {
+  column: SortColumn;
+  direction: SortDirection;
 }

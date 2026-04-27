@@ -5,8 +5,12 @@ import { AuthService } from '../../../core/services/auth.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { IncidentList } from '../incident-list/incident-list';
 import { IncidentFilter } from '../incident-filter/incident-filter';
-import { IncidentFilter as IncidentFilterModel, UpdateStatusRequest } from '../../../core/models/incident.model';
 import { IncidentPagination } from '../incident-pagination/incident-pagination';
+import {
+  IncidentFilter as IncidentFilterModel,
+  UpdateStatusRequest,
+  SortColumn
+} from '../../../core/models/incident.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,11 +30,12 @@ export class Dashboard implements OnInit, OnDestroy {
   readonly loading = this.incidentService.loading;
   readonly error = this.incidentService.error;
   readonly totalElements = this.incidentService.totalElements;
+  readonly totalPages = this.incidentService.totalPages;
+  readonly currentPage = this.incidentService.currentPage;
   readonly criticalCount = this.incidentService.criticalCount;
   readonly openCount = this.incidentService.openCount;
   readonly wsState = this.wsService.connectionState;
-  readonly totalPages = this.incidentService.totalPages;
-  readonly currentPage = this.incidentService.currentPage;
+  readonly sortState = this.incidentService.sortState;
 
   readonly pageTitle = computed(() => {
     const open = this.openCount();
@@ -56,6 +61,16 @@ export class Dashboard implements OnInit, OnDestroy {
     this.incidentService.loadIncidents(filter);
   }
 
+  onPageChange(page: number): void {
+    this.logger.debug('Page changed', { page });
+    this.incidentService.loadIncidents({ ...this.currentFilter, page });
+  }
+
+  onSort(column: SortColumn): void {
+    this.logger.debug('Sort changed', { column });
+    this.incidentService.sortIncidents(column);
+  }
+
   onAcknowledge(incidentId: string): void {
     const request: UpdateStatusRequest = { status: 'ACKNOWLEDGED' };
     this.incidentService.updateStatus(incidentId, request);
@@ -77,10 +92,5 @@ export class Dashboard implements OnInit, OnDestroy {
 
   onDismissError(): void {
     this.incidentService.clearError();
-  }
-
-  onPageChange(page: number): void {
-  this.logger.debug('Page changed', { page });
-  this.incidentService.loadIncidents({ ...this.currentFilter, page });
   }
 }

@@ -26,7 +26,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private readonly incidentService = inject(IncidentService);
   private readonly wsService = inject(WebSocketService);
-  private readonly authService = inject(AuthService);
+  readonly authService = inject(AuthService);
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -42,8 +42,21 @@ export class Dashboard implements OnInit, OnDestroy {
   readonly openCount = this.incidentService.openCount;
   readonly wsState = this.wsService.connectionState;
   readonly sortState = this.incidentService.sortState;
-
   readonly lastRefreshedAt = signal<Date | null>(null);
+
+  readonly sessionExpiryDisplay = computed(() => {
+    const ms = this.authService.sessionRemainingMs();
+    if (ms === null) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  });
+
+  readonly showExpiryWarning = computed(() =>
+    this.authService.sessionIsExpiringSoon()
+  );
 
   readonly pageTitle = computed(() => {
     const open = this.openCount();
@@ -74,15 +87,18 @@ export class Dashboard implements OnInit, OnDestroy {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       if (this.wsState() !== 'CONNECTED') {
-        this.logger.info('Auto-refresh triggered — WebSocket offline', {
-          wsState: this.wsState()
-        });
+        this.logger.info('Auto-refresh triggered — WebSocket offline');
         this.incidentService.loadIncidents(this.currentFilter);
         this.lastRefreshedAt.set(new Date());
       } else {
         this.logger.debug('Auto-refresh skipped — WebSocket connected');
       }
     });
+  }
+
+  onExtendSession(): void {
+    this.authService.resetAutoLogoutTimer();
+    this.logger.info('Session extended — auto-logout timer reset');
   }
 
   onFilterChange(filter: IncidentFilterModel): void {

@@ -1,5 +1,14 @@
 <div class="dashboard">
 
+  @if (showExpiryWarning()) {
+    <div class="dashboard__expiry-banner" role="alert">
+      ⚠️ Session expires in <strong>{{ sessionExpiryDisplay() }}</strong>
+      <button class="dashboard__expiry-btn" (click)="onExtendSession()">
+        Extend session
+      </button>
+    </div>
+  }
+
   <header class="dashboard__header">
     <div class="dashboard__header-left">
       <h1 class="dashboard__title">🔴 Incident Platform</h1>

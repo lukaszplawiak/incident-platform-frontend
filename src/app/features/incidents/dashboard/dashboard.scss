@@ -3,6 +3,39 @@
   background-color: #1a202c;
   color: #e2e8f0;
 
+  &__expiry-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 10px 24px;
+    background-color: #744210;
+    border-bottom: 1px solid #f6ad55;
+    color: #fefcbf;
+    font-size: 14px;
+    font-weight: 500;
+
+    strong {
+      color: #f6e05e;
+    }
+  }
+
+  &__expiry-btn {
+    padding: 4px 14px;
+    background-color: #f6ad55;
+    color: #1a202c;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:hover {
+      opacity: 0.85;
+    }
+  }
+
   &__header {
     display: flex;
     align-items: center;

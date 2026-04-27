@@ -1,4 +1,3 @@
-        // Rollback
 import { Injectable, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { timer } from 'rxjs';
@@ -8,6 +7,7 @@ import { AuthService } from './auth.service';
 import { IncidentService } from './incident.service';
 import { LoggerService } from './logger.service';
 import { IncidentWebSocketEvent } from '../models/incident.model';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 export type ConnectionState =
   | 'DISCONNECTED'
@@ -24,6 +24,7 @@ export class WebSocketService implements OnDestroy {
   private readonly incidentService = inject(IncidentService);
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toastService = inject(ToastService);
 
   private readonly _connectionState = signal<ConnectionState>('DISCONNECTED');
   readonly connectionState = this._connectionState.asReadonly();
@@ -155,10 +156,12 @@ export class WebSocketService implements OnDestroy {
       switch (event.eventType) {
         case 'CREATED':
           this.incidentService.addIncident(event.incident);
+          this.toastService.info(`🔴 New incident: ${event.incident.title}`);
           break;
         case 'UPDATED':
         case 'STATUS_CHANGED':
           this.incidentService.updateIncident(event.incident);
+          this.toastService.info(`Status changed: ${event.incident.title} → ${event.incident.status}`);
           break;
       }
     } catch {

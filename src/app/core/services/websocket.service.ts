@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import { Client, IFrame, IMessage, StompSubscription } from '@stomp/stompjs';
 import { timer } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
@@ -46,7 +46,7 @@ export class WebSocketService implements OnDestroy {
 
     const token = this.authService.getToken();
     if (!token) {
-      this.logger.warn('WebSocket connect called without valid token');
+      this.logger.warn('WebSocket connect called without valid JWT token');
       return;
     }
 
@@ -79,22 +79,26 @@ export class WebSocketService implements OnDestroy {
       onConnect: () => {
         this._connectionState.set('CONNECTED');
         this.reconnectAttempts = 0;
-        this.logger.info('WebSocket connected');
+        this.logger.info('WebSocket connected successfully');
         this.subscribeToIncidents();
       },
 
       onDisconnect: () => {
         this.subscription = null;
         this.logger.warn('WebSocket disconnected', {
-          attempts: this.reconnectAttempts
+          reconnectAttempts: this.reconnectAttempts
         });
         if (this._connectionState() !== 'DISCONNECTED') {
           this.scheduleReconnect();
         }
       },
 
-      onStompError: () => {
-        this.logger.warn('WebSocket STOMP error occurred');
+      onStompError: (frame: IFrame) => {
+        this.logger.warn('WebSocket STOMP error received', {
+          command: frame.command,
+          headers: frame.headers,
+          body: frame.body
+        });
       }
     });
 
@@ -110,7 +114,7 @@ export class WebSocketService implements OnDestroy {
     this.reconnectAttempts++;
     this._connectionState.set('RECONNECTING');
 
-    this.logger.info('WebSocket scheduling reconnect', {
+    this.logger.info('WebSocket reconnect scheduled', {
       attempt: this.reconnectAttempts,
       delayMs: delay
     });
@@ -121,7 +125,7 @@ export class WebSocketService implements OnDestroy {
       const freshToken = this.authService.getToken();
 
       if (!freshToken || !this.authService.isAuthenticated()) {
-        this.logger.warn('WebSocket reconnect aborted — token expired');
+        this.logger.warn('WebSocket reconnect aborted — token expired or user logged out');
         this.disconnect();
         return;
       }
@@ -161,11 +165,13 @@ export class WebSocketService implements OnDestroy {
         case 'UPDATED':
         case 'STATUS_CHANGED':
           this.incidentService.updateIncident(event.incident);
-          this.toastService.info(`Status changed: ${event.incident.title} → ${event.incident.status}`);
+          this.toastService.info(
+            `Status changed: ${event.incident.title} → ${event.incident.status}`
+          );
           break;
       }
     } catch {
-      this.logger.warn('WebSocket received invalid message — parse error');
+      this.logger.warn('WebSocket message parse error — invalid JSON received');
     }
   }
 

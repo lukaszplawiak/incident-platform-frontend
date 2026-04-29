@@ -12,7 +12,10 @@
           default-src 'self';
           script-src 'self';
           style-src 'self' 'unsafe-inline';
-          connect-src 'self' http://localhost:8082 ws://localhost:8082;
+          connect-src 'self' 
+            http://localhost:8081
+            http://localhost:8082 
+            ws://localhost:8082;
           font-src 'self' https://fonts.gstatic.com;
           img-src 'self' data:;
           frame-ancestors 'none';

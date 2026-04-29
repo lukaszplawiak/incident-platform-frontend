@@ -68,7 +68,7 @@ export class AuthService {
   }
 
   login(userId: string, tenantId: string): Observable<AuthResponse> {
-    const url = `${environment.apiUrl.replace('8082', '8081')}/dev/token`;
+    const url = `${environment.authApiUrl}/dev/token`;
     return this.http.get<AuthResponse>(url, {
       params: { userId, tenantId }
     }).pipe(

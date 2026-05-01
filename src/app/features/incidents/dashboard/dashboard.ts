@@ -1,4 +1,14 @@
-import { Component, OnInit, OnDestroy, inject, computed, signal, DestroyRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  inject,
+  computed,
+  signal,
+  effect,
+  DestroyRef
+} from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { DatePipe } from '@angular/common';
 import { interval } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -27,6 +37,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   private readonly incidentService = inject(IncidentService);
   private readonly wsService = inject(WebSocketService);
+  private readonly titleService = inject(Title);
   readonly authService = inject(AuthService);
   private readonly idleService = inject(IdleService);
   private readonly logger = inject(LoggerService);
@@ -70,6 +81,12 @@ export class Dashboard implements OnInit, OnDestroy {
   );
 
   private currentFilter: IncidentFilterModel = {};
+
+  constructor() {
+    effect(() => {
+      this.titleService.setTitle(this.pageTitle());
+    });
+  }
 
   ngOnInit(): void {
     this.logger.info('Dashboard initialized');

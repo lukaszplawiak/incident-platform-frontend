@@ -32,7 +32,12 @@ FROM nginx:alpine AS runtime
 # Remove default Nginx configuration
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our configuration with security headers
+# Copy security headers — included by nginx.conf in every location{} block.
+# Must be copied before nginx.conf because nginx.conf references it via include.
+# Path /etc/nginx/security-headers.conf matches the include directive in nginx.conf.
+COPY security-headers.conf /etc/nginx/security-headers.conf
+
+# Copy our main Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built Angular files from Stage 1

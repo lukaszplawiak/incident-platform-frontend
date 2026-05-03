@@ -43,7 +43,6 @@ module.exports = defineConfig([
     rules: {},
   },
 
-  // ✅ TESTS OVERRIDE (POPRAWNE)
   {
     files: ['**/*.spec.ts'],
     rules: {

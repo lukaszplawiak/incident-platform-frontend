@@ -248,17 +248,16 @@ export class IncidentService {
   }
 
   addIncident(incident: Incident): void {
-    this._incidents.update(incidents => {
-      const exists = incidents.some(i => i.id === incident.id);
-      if (exists) return incidents;
-      this.logger.debug('New incident added via WebSocket', {
-        id: incident.id,
-        severity: incident.severity
-      });
-      return [incident, ...incidents];
-    });
+    const exists = this._incidents().some(i => i.id === incident.id);
+    if (exists) return;
+
+    this._incidents.update(incidents => [incident, ...incidents]);
     this._totalElements.update(count => count + 1);
-  }
+    this.logger.debug('New incident added via WebSocket', {
+      id: incident.id,
+      severity: incident.severity
+    });
+}
 
   updateIncident(incident: Incident): void {
     this._incidents.update(incidents =>

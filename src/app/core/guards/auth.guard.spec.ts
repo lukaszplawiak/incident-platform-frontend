@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 
 import { authGuard } from './auth.guard';
 import { AuthService } from '../services/auth.service';
@@ -8,12 +9,18 @@ import { AuthService } from '../services/auth.service';
 // ─── Suite ────────────────────────────────────────────────────────────────────
 
 describe('authGuard', () => {
-  let mockAuthService: { isAuthenticated: ReturnType<typeof vi.fn> };
+  let mockAuthService: {
+    isAuthenticated: ReturnType<typeof vi.fn>;
+  };
+
   let router: Router;
 
   function runGuard(): boolean | UrlTree {
     return TestBed.runInInjectionContext(() =>
-      authGuard({} as any, {} as any)
+      authGuard(
+        {} as unknown as import('@angular/router').ActivatedRouteSnapshot,
+        {} as unknown as import('@angular/router').RouterStateSnapshot
+      )
     ) as boolean | UrlTree;
   }
 
@@ -26,8 +33,8 @@ describe('authGuard', () => {
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         provideRouter([
-          { path: 'login', component: class DummyLogin {} as any },
-          { path: 'incidents', component: class DummyIncidents {} as any },
+          { path: 'login', component: class DummyLogin {} },
+          { path: 'incidents', component: class DummyIncidents {} },
         ]),
       ],
     });

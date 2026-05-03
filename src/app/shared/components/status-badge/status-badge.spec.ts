@@ -31,7 +31,7 @@ describe('StatusBadge', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('label', () => {
-    const cases: Array<{ status: IncidentStatus; expectedLabel: string }> = [
+    const cases: { status: IncidentStatus; expectedLabel: string }[] = [
       { status: 'OPEN',         expectedLabel: 'Open' },
       { status: 'ACKNOWLEDGED', expectedLabel: 'Acknowledged' },
       { status: 'ESCALATED',    expectedLabel: 'Escalated' },
@@ -75,7 +75,7 @@ describe('StatusBadge', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('cssClass', () => {
-    const cases: Array<{ status: IncidentStatus; expectedClass: string }> = [
+    const cases: { status: IncidentStatus; expectedClass: string }[] = [
       { status: 'OPEN',         expectedClass: 'status-badge status-badge--open' },
       { status: 'ACKNOWLEDGED', expectedClass: 'status-badge status-badge--acknowledged' },
       { status: 'ESCALATED',    expectedClass: 'status-badge status-badge--escalated' },

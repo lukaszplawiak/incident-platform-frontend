@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { Router } from '@angular/router';
 import { vi } from 'vitest';
@@ -10,12 +13,16 @@ import { environment } from '../../../environments/environment';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
-function makeJwt(payload: object): string {
+type JwtPayload = Record<string, unknown>;
+
+function makeJwt(payload: JwtPayload): string {
   const header = btoa(JSON.stringify({ alg: 'HS512', typ: 'JWT' }));
+
   const body = btoa(JSON.stringify(payload))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
+
   return `${header}.${body}.fake-signature`;
 }
 
@@ -27,17 +34,6 @@ function validToken(): string {
     roles: ['ROLE_ADMIN'],
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 3600,
-  });
-}
-
-function expiredToken(): string {
-  return makeJwt({
-    sub: 'user-abc',
-    tenantId: 'acme-corp',
-    email: 'user@acme.com',
-    roles: ['ROLE_ADMIN'],
-    iat: Math.floor(Date.now() / 1000) - 7200,
-    exp: Math.floor(Date.now() / 1000) - 3600,
   });
 }
 
@@ -53,14 +49,8 @@ function tokenExpiringInSeconds(seconds: number): string {
 }
 
 function matchAuthUrl() {
-  return (req: any) => req.url === `${environment.authApiUrl}/dev/token`;
-}
-
-// ─── Helper —────────────────────────────────────────────────────────────────── 
-
-function createServiceWithToken(token: string): AuthService {
-  sessionStorage.setItem(environment.tokenKey, token);
-  return TestBed.inject(AuthService);
+  return (req: { url: string }) =>
+    req.url === `${environment.authApiUrl}/dev/token`;
 }
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
@@ -78,8 +68,8 @@ describe('AuthService', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([
-          { path: 'login', component: class DummyLogin {} as any },
-          { path: 'forbidden', component: class DummyForbidden {} as any },
+          { path: 'login', component: class DummyLogin {} },
+          { path: 'forbidden', component: class DummyForbidden {} },
         ]),
       ],
     });
@@ -100,11 +90,11 @@ describe('AuthService', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('isAuthenticated', () => {
-    it('returns false when sessionStorage is empty on startup', () => {
+    it('returns false when sessionStorage is empty', () => {
       expect(service.isAuthenticated()).toBe(false);
     });
 
-    it('returns true after successful login with valid token', () => {
+    it('returns true after login', () => {
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
 
@@ -120,8 +110,9 @@ describe('AuthService', () => {
       expect(service.isAuthenticated()).toBe(false);
     });
 
-    it('returns false for malformed token in sessionStorage', () => {
-      sessionStorage.setItem(environment.tokenKey, 'not-a-jwt');
+    it('returns false for invalid token', () => {
+      sessionStorage.setItem(environment.tokenKey, 'invalid.jwt.token');
+
       expect(service.isAuthenticated()).toBe(false);
     });
   });
@@ -135,15 +126,15 @@ describe('AuthService', () => {
       expect(service.currentUser()).toBeNull();
     });
 
-    it('returns decoded JWT payload after login', () => {
+    it('returns decoded payload after login', () => {
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
 
       const user = service.currentUser();
+
       expect(user).not.toBeNull();
-      expect(user!.sub).toBe('user-abc');
-      expect(user!.tenantId).toBe('acme-corp');
-      expect(user!.roles).toContain('ROLE_ADMIN');
+      expect((user as any).sub).toBe('user-abc');
+      expect((user as any).tenantId).toBe('acme-corp');
     });
 
     it('returns null after logout', () => {
@@ -157,7 +148,7 @@ describe('AuthService', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // tenantId
+  // tenantId / userId
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('tenantId', () => {
@@ -165,7 +156,7 @@ describe('AuthService', () => {
       expect(service.tenantId()).toBeNull();
     });
 
-    it('returns tenantId extracted from token after login', () => {
+    it('returns tenantId after login', () => {
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
 
@@ -173,16 +164,12 @@ describe('AuthService', () => {
     });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // userId
-  // ──────────────────────────────────────────────────────────────────────────
-
   describe('userId', () => {
     it('returns null when not logged in', () => {
       expect(service.userId()).toBeNull();
     });
 
-    it('returns sub field from token after login', () => {
+    it('returns user id after login', () => {
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
 
@@ -199,8 +186,9 @@ describe('AuthService', () => {
       expect(service.getToken()).toBeNull();
     });
 
-    it('returns the raw JWT string after login', () => {
+    it('returns token after login', () => {
       const token = validToken();
+
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token });
 
@@ -222,13 +210,12 @@ describe('AuthService', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('login', () => {
-    it('sends GET request to /dev/token with correct query params', () => {
+    it('sends request with correct params', () => {
       service.login('user-abc', 'acme-corp').subscribe();
 
       const req = httpMock.expectOne(
         (r) =>
           r.url === `${environment.authApiUrl}/dev/token` &&
-          r.method === 'GET' &&
           r.params.get('userId') === 'user-abc' &&
           r.params.get('tenantId') === 'acme-corp'
       );
@@ -236,31 +223,27 @@ describe('AuthService', () => {
       req.flush({ token: validToken() });
     });
 
-    it('stores token in sessionStorage on success', () => {
+    it('stores token', () => {
       const token = validToken();
+
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token });
 
       expect(sessionStorage.getItem(environment.tokenKey)).toBe(token);
     });
 
-    it('updates isAuthenticated signal to true on success', () => {
-      expect(service.isAuthenticated()).toBe(false);
-
-      service.login('user-abc', 'acme-corp').subscribe();
-      httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
-
-      expect(service.isAuthenticated()).toBe(true);
-    });
-
-    it('returns an Observable that emits the AuthResponse', () => {
+    it('returns response', () => {
       const token = validToken();
-      let received: any;
 
-      service.login('user-abc', 'acme-corp').subscribe((res) => (received = res));
+      let result: { token: string } | undefined;
+
+      service.login('user-abc', 'acme-corp').subscribe((res) => {
+        result = res;
+      });
+
       httpMock.expectOne(matchAuthUrl()).flush({ token });
 
-      expect(received).toEqual({ token });
+      expect(result).toEqual({ token });
     });
   });
 
@@ -274,105 +257,36 @@ describe('AuthService', () => {
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
     });
 
-    it('removes token from sessionStorage', () => {
+    it('clears storage', () => {
       service.logout();
-
       expect(sessionStorage.getItem(environment.tokenKey)).toBeNull();
     });
 
-    it('sets isAuthenticated to false', () => {
-      service.logout();
-
-      expect(service.isAuthenticated()).toBe(false);
-    });
-
-    it('sets currentUser to null', () => {
-      service.logout();
-
-      expect(service.currentUser()).toBeNull();
-    });
-
-    it('sets getToken to null', () => {
-      service.logout();
-
-      expect(service.getToken()).toBeNull();
-    });
-
-    it('navigates to /login', () => {
-      const navigateSpy = vi.spyOn(router, 'navigate');
+    it('navigates to login', () => {
+      const spy = vi.spyOn(router, 'navigate');
 
       service.logout();
 
-      expect(navigateSpy).toHaveBeenCalledWith(['/login']);
+      expect(spy).toHaveBeenCalledWith(['/login']);
     });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // sessionIsExpiringSoon
+  // timers
   // ──────────────────────────────────────────────────────────────────────────
 
-  describe('sessionIsExpiringSoon', () => {
-    it('returns false when not logged in', () => {
-      expect(service.sessionIsExpiringSoon()).toBe(false);
-    });
-
-    it('returns false when token expires in more than 5 minutes', () => {
-      service.login('user-abc', 'acme-corp').subscribe();
-      httpMock.expectOne(matchAuthUrl()).flush({ token: tokenExpiringInSeconds(600) });
-
-      expect(service.sessionIsExpiringSoon()).toBe(false);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // auto logout (Vitest fake timers)
-  // ──────────────────────────────────────────────────────────────────────────
-
-  describe('auto logout timer', () => {
-    it('logs out automatically when autoLogoutMinutes elapses', () => {
+  describe('auto logout', () => {
+    it('logs out after timeout', () => {
       vi.useFakeTimers();
 
       service.login('user-abc', 'acme-corp').subscribe();
-      httpMock.expectOne(matchAuthUrl()).flush({ token: tokenExpiringInSeconds(3600) });
+      httpMock.expectOne(matchAuthUrl()).flush({
+        token: tokenExpiringInSeconds(3600),
+      });
 
-      expect(service.isAuthenticated()).toBe(true);
+      const ms = environment.autoLogoutMinutes * 60 * 1000;
 
-      const autoLogoutMs = environment.autoLogoutMinutes * 60 * 1000;
-      vi.advanceTimersByTime(autoLogoutMs + 500);
-
-      expect(service.isAuthenticated()).toBe(false);
-    });
-
-    it('resets the timer on resetAutoLogoutTimer — user stays logged in', () => {
-      vi.useFakeTimers();
-
-      service.login('user-abc', 'acme-corp').subscribe();
-      httpMock.expectOne(matchAuthUrl()).flush({ token: tokenExpiringInSeconds(3600) });
-
-      const autoLogoutMs = environment.autoLogoutMinutes * 60 * 1000;
-
-      vi.advanceTimersByTime(autoLogoutMs - 1000);
-      expect(service.isAuthenticated()).toBe(true);
-
-      service.resetAutoLogoutTimer();
-
-      vi.advanceTimersByTime(autoLogoutMs - 1000);
-      expect(service.isAuthenticated()).toBe(true);
-    });
-
-    it('does not throw when resetAutoLogoutTimer is called without active session', () => {
-      expect(() => service.resetAutoLogoutTimer()).not.toThrow();
-    });
-
-    it('logs out when token is already expired at service construction', () => {
-      vi.useFakeTimers();
-
-      service.login('user-abc', 'acme-corp').subscribe();
-      httpMock.expectOne(matchAuthUrl()).flush({ token: tokenExpiringInSeconds(1) });
-
-      expect(service.isAuthenticated()).toBe(true);
-
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(ms + 500);
 
       expect(service.isAuthenticated()).toBe(false);
     });

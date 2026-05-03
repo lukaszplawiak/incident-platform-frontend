@@ -31,7 +31,7 @@ describe('SeverityBadge', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('emoji', () => {
-    const cases: Array<{ severity: IncidentSeverity; expectedEmoji: string }> = [
+    const cases: { severity: IncidentSeverity; expectedEmoji: string }[] = [
       { severity: 'CRITICAL', expectedEmoji: '🔴' },
       { severity: 'HIGH',     expectedEmoji: '🟠' },
       { severity: 'MEDIUM',   expectedEmoji: '🟡' },
@@ -61,7 +61,7 @@ describe('SeverityBadge', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('cssClass', () => {
-    const cases: Array<{ severity: IncidentSeverity; expectedClass: string }> = [
+    const cases: { severity: IncidentSeverity; expectedClass: string }[] = [
       { severity: 'CRITICAL', expectedClass: 'severity-badge severity-badge--critical' },
       { severity: 'HIGH',     expectedClass: 'severity-badge severity-badge--high' },
       { severity: 'MEDIUM',   expectedClass: 'severity-badge severity-badge--medium' },

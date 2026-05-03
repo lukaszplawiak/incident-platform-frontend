@@ -95,7 +95,6 @@ export class WebSocketService {
     });
 
     this.stompClient.activate();
-
     this.destroyRef.onDestroy(() => this.cleanup());
   }
 
@@ -133,12 +132,20 @@ export class WebSocketService {
   private subscribeToIncidents(): void {
     if (!this.stompClient) return;
 
+    const tenantId = this.authService.tenantId();
+    if (!tenantId) {
+      this.logger.warn('WebSocket: no tenantId available, cannot subscribe');
+      return;
+    }
+
+    const topic = `/topic/incidents/${tenantId}`;
+
     this.subscription = this.stompClient.subscribe(
-      '/topic/incidents',
+      topic,
       (message: IMessage) => this.handleIncidentEvent(message)
     );
 
-    this.logger.debug('WebSocket subscribed to /topic/incidents');
+    this.logger.debug('WebSocket subscribed to', { topic });
   }
 
   private handleIncidentEvent(message: IMessage): void {
@@ -147,19 +154,27 @@ export class WebSocketService {
 
       this.logger.debug('WebSocket event received', {
         eventType: event.eventType,
-        incidentId: event.incident.id
+        incidentId: event.incident?.id
       });
 
       switch (event.eventType) {
+        case 'INCIDENT_CREATED':
         case 'CREATED':
           this.incidentService.addIncident(event.incident);
           this.toastService.info(`🔴 New incident: ${event.incident.title}`);
           break;
+        case 'INCIDENT_STATUS_CHANGED':
         case 'UPDATED':
         case 'STATUS_CHANGED':
           this.incidentService.updateIncident(event.incident);
-          this.toastService.info(`Status changed: ${event.incident.title} → ${event.incident.status}`);
+          this.toastService.info(
+            `Status changed: ${event.incident.title} → ${event.incident.status}`
+          );
           break;
+        default:
+          this.logger.debug('WebSocket unknown event type', {
+            eventType: event.eventType
+          });
       }
     } catch {
       this.logger.warn('WebSocket received invalid message — parse error');

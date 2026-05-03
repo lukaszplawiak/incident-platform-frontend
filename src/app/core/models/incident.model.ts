@@ -55,7 +55,7 @@ export interface PageResponse<T> {
 }
 
 export interface IncidentWebSocketEvent {
-  eventType: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED';
+  eventType: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'INCIDENT_CREATED' | 'INCIDENT_STATUS_CHANGED';
   incident: Incident;
   previousStatus?: IncidentStatus;
 }

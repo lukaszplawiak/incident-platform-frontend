@@ -1,59 +1,195 @@
-# IncidentPlatformFrontend
+# 📊 Incident Platform – Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.8.
+Frontend application for the **Incident Platform**, a production-grade distributed system for incident detection, escalation, and resolution.
 
-## Development server
+This UI provides a real-time operational dashboard for engineers to monitor, filter, and react to incidents across multiple tenants.
 
-To start a local development server, run:
+It is a **presentation layer** built on top of a backend system responsible for:
+- alert ingestion
+- incident lifecycle management
+- escalation chains
+- notifications (Slack / Email / SMS)
+- AI-generated postmortems
+
+---
+
+## 🧠 System Context
+
+This frontend is part of a larger microservices architecture:
+
+- ingestion-service (alert normalization & deduplication)
+- incident-service (core incident lifecycle engine)
+- escalation-service (automatic escalation system)
+- notification-service (multi-channel delivery)
+- oncall-service (on-call scheduling)
+- postmortem-service (AI-assisted postmortems)
+
+### Communication model
+- REST API → incident-service
+- WebSocket (STOMP over `/ws`) → real-time updates
+- JWT-based authentication
+
+---
+
+## 🎯 Frontend Responsibilities
+
+The frontend focuses on **operational visibility and fast incident response**.
+
+### Core features
+
+- 🔐 Authentication (JWT login)
+- 📊 Real-time incident dashboard
+- 🔍 Filtering:
+  - status (OPEN, ACKNOWLEDGED, RESOLVED, CLOSED)
+  - severity (CRITICAL, HIGH, MEDIUM, LOW)
+- ⚡ Live updates via WebSocket (STOMP)
+- 📄 Incident detail view
+- 🧾 Audit timeline per incident
+- 📱 Responsive UI for operational usage
+
+---
+
+## ⚙️ Tech Stack
+
+- Angular (standalone architecture)
+- TypeScript
+- RxJS
+- STOMP (`@stomp/stompjs`)
+- SCSS
+- Vitest (unit testing)
+- ESLint (strict configuration)
+
+---
+
+## 🏗 Architecture Overview
+
+Feature-based modular structure:
+app/
+├── core/ → infrastructure (services, guards, interceptors)
+├── features/ → business modules (auth, incidents, errors)
+└── shared/ → reusable UI components
+
+
+### Key design principles
+- separation of concerns
+- feature-first architecture
+- backend-driven state
+- reactive UI (RxJS + WebSocket)
+
+---
+
+## 🧩 Core Layer
+
+Handles application infrastructure:
+
+### Services
+- **AuthService** → JWT handling & session state
+- **IncidentService** → REST API communication
+- **WebSocketService** → STOMP lifecycle + real-time updates
+- **LoggerService** → centralized logging abstraction
+- **IdleService** → inactivity tracking & auto logout
+
+### Infrastructure
+- **AuthGuard** → route protection
+- **HTTP Interceptors**
+  - auth token injection
+  - global error handling (401/403/5xx)
+
+---
+
+## 📦 Features
+
+### 📊 Incidents Module
+
+Main operational dashboard:
+
+- incident list view
+- filtering by status & severity
+- pagination
+- real-time updates
+- incident details
+- audit trail timeline
+- postmortem preview
+
+### 🔐 Auth Module
+
+- login page
+- JWT session initialization
+
+### ⚠️ Error Module
+
+- 403 Forbidden page
+- global error fallback page
+
+---
+
+## 🔄 Real-time Updates (WebSocket)
+
+STOMP over WebSocket:
+/topic/incidents/{tenantId}
+
+
+### Event types
+- INCIDENT_CREATED
+- INCIDENT_UPDATED
+- STATUS_CHANGED
+
+UI updates are applied instantly without refresh.
+
+---
+
+## 🔐 Authentication Flow
+
+- login via backend endpoint
+- JWT stored in `sessionStorage`
+- token decoded for:
+  - userId
+  - tenantId
+  - roles
+- route protection via `AuthGuard`
+- automatic logout:
+  - token expiration
+  - inactivity timeout
+
+---
+
+## ⏱ Idle Session Handling
+
+Automatic logout system:
+
+- global activity tracking (mouse / keyboard)
+- timer reset on interaction
+- configurable timeout (`autoLogoutMinutes`)
+
+---
+
+## 📡 API Communication
+
+- Angular `HttpClient`
+- global error interceptor:
+  - 401 → logout
+  - 403 → redirect to forbidden page
+  - 5xx → user-friendly fallback
+- retry strategy for unstable network responses
+
+---
+
+## 🧪 Testing
+
+- Vitest (unit tests)
+- coverage:
+  - services
+  - guards
+  - interceptors
+  - WebSocket layer
+
+### Mocking strategy
+- HTTP backend
+- STOMP client
+- Router
+- Auth state
+
+Run tests:
 
 ```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+npm run test

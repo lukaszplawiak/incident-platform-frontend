@@ -17,10 +17,10 @@ describe('LoggerService', () => {
 
     service = TestBed.inject(LoggerService);
 
-    debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => void 0);
+    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => void 0);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => void 0);
   });
 
   afterEach(() => {

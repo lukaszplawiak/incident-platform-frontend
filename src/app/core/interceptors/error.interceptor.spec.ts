@@ -14,13 +14,9 @@ const TEST_URL = 'http://localhost:8082/api/v1/test';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
-type AuthServiceMock = {
+interface AuthServiceMock {
   logout: ReturnType<typeof vi.fn>;
-};
-
-type RouterMock = {
-  navigate: ReturnType<typeof vi.fn>;
-};
+}
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
 
@@ -29,15 +25,6 @@ describe('errorInterceptor', () => {
   let httpMock: HttpTestingController;
   let mockAuthService: AuthServiceMock;
   let router: Router;
-
-  function flushError(status: number, statusText = 'Error', times = 1): void {
-    for (let i = 0; i < times; i++) {
-      httpMock.expectOne(TEST_URL).flush(
-        { message: statusText },
-        { status, statusText }
-      );
-    }
-  }
 
   beforeEach(() => {
     mockAuthService = {
@@ -321,7 +308,7 @@ describe('errorInterceptor', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('error messages', () => {
-    const cases: Array<[number, string]> = [
+    const cases: [number, string][] = [
       [0, 'Unable to connect to the server. Please check your connection.'],
       [400, 'Invalid request. Please check your input.'],
       [401, 'Your session has expired. Please log in again.'],

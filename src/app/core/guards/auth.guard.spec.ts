@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
@@ -12,8 +12,6 @@ describe('authGuard', () => {
   let mockAuthService: {
     isAuthenticated: ReturnType<typeof vi.fn>;
   };
-
-  let router: Router;
 
   function runGuard(): boolean | UrlTree {
     return TestBed.runInInjectionContext(() =>
@@ -39,7 +37,6 @@ describe('authGuard', () => {
       ],
     });
 
-    router = TestBed.inject(Router);
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -57,12 +54,14 @@ describe('authGuard', () => {
       expect(result).toBe(true);
     });
 
-    it('does not redirect to /login', () => {
-      const navigateSpy = vi.spyOn(router, 'navigate');
+    it('does not return a UrlTree for authenticated user', () => {
+      // The meaningful assertion is that the result is true, not a redirect.
+      // Spying on router.navigate would be incorrect here because the guard
+      // uses router.createUrlTree(), not router.navigate().
+      const result = runGuard();
 
-      runGuard();
-
-      expect(navigateSpy).not.toHaveBeenCalled();
+      expect(result).toBe(true);
+      expect(result).not.toBeInstanceOf(UrlTree);
     });
   });
 

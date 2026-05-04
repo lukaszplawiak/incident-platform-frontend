@@ -8,15 +8,15 @@ import { environment } from '../../../environments/environment';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-type AuthServiceMock = {
+interface AuthServiceMock {
   isAuthenticated: ReturnType<typeof vi.fn>;
   logout: ReturnType<typeof vi.fn>;
-};
+}
 
-type LoggerServiceMock = {
+interface LoggerServiceMock {
   debug: ReturnType<typeof vi.fn>;
   warn: ReturnType<typeof vi.fn>;
-};
+}
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
 

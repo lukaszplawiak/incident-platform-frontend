@@ -1,29 +1,28 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, computed } from '@angular/core';
 import { IncidentSeverity } from '../../../core/models/incident.model';
 
 @Component({
   selector: 'app-severity-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './severity-badge.html',
   styleUrl: './severity-badge.scss'
 })
 export class SeverityBadge {
 
-  @Input({ required: true }) severity!: IncidentSeverity;
+  readonly severity = input.required<IncidentSeverity>();
 
-  get emoji(): string {
+  readonly emoji = computed((): string => {
     const emojis: Record<IncidentSeverity, string> = {
       'CRITICAL': '🔴',
       'HIGH':     '🟠',
       'MEDIUM':   '🟡',
       'LOW':      '🟢'
     };
-    return emojis[this.severity] ?? '⚪';
-  }
+    return emojis[this.severity()] ?? '⚪';
+  });
 
-  get cssClass(): string {
-    return `severity-badge severity-badge--${this.severity.toLowerCase()}`;
-  }
+  readonly cssClass = computed((): string =>
+    `severity-badge severity-badge--${this.severity().toLowerCase()}`
+  );
 }

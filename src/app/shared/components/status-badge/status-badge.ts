@@ -1,19 +1,18 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, computed } from '@angular/core';
 import { IncidentStatus } from '../../../core/models/incident.model';
 
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './status-badge.html',
   styleUrl: './status-badge.scss'
 })
 export class StatusBadge {
 
-  @Input({ required: true }) status!: IncidentStatus;
+  readonly status = input.required<IncidentStatus>();
 
-  get label(): string {
+  readonly label = computed((): string => {
     const labels: Record<IncidentStatus, string> = {
       'OPEN':         'Open',
       'ACKNOWLEDGED': 'Acknowledged',
@@ -21,10 +20,10 @@ export class StatusBadge {
       'RESOLVED':     'Resolved',
       'CLOSED':       'Closed'
     };
-    return labels[this.status] ?? this.status;
-  }
+    return labels[this.status()] ?? this.status();
+  });
 
-  get cssClass(): string {
-    return `status-badge status-badge--${this.status.toLowerCase()}`;
-  }
+  readonly cssClass = computed((): string =>
+    `status-badge status-badge--${this.status().toLowerCase()}`
+  );
 }

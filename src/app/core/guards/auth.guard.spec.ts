@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 
@@ -12,8 +12,6 @@ describe('authGuard', () => {
   let mockAuthService: {
     isAuthenticated: ReturnType<typeof vi.fn>;
   };
-
-  let router: Router;
 
   function runGuard(): boolean | UrlTree {
     return TestBed.runInInjectionContext(() =>
@@ -39,7 +37,6 @@ describe('authGuard', () => {
       ],
     });
 
-    router = TestBed.inject(Router);
   });
 
   // ──────────────────────────────────────────────────────────────────────────

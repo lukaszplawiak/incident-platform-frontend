@@ -2,11 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../services/auth.service';
-
-// ─── Suite ────────────────────────────────────────────────────────────────────
+import { environment } from '../../../environments/environment';
 
 describe('authInterceptor', () => {
   let http: HttpClient;
@@ -48,42 +48,47 @@ describe('authInterceptor', () => {
       mockAuthService.getToken.mockReturnValue('my-jwt-token');
     });
 
-    it('adds Authorization header to incident-service requests (port 8082)', () => {
-      http.get('http://localhost:8082/api/v1/incidents').subscribe();
+    it('adds Authorization header to apiUrl requests (incident-service)', () => {
+      const url = `${environment.apiUrl}/api/v1/incidents`;
+      http.get(url).subscribe();
 
-      const req = httpMock.expectOne('http://localhost:8082/api/v1/incidents');
+      const req = httpMock.expectOne(url);
       expect(req.request.headers.get('Authorization')).toBe('Bearer my-jwt-token');
       req.flush([]);
     });
 
-    it('adds Authorization header to ingestion-service requests (port 8081)', () => {
-      http.get('http://localhost:8081/api/v1/alerts').subscribe();
+    it('adds Authorization header to authApiUrl requests (ingestion-service)', () => {
+      const url = `${environment.authApiUrl}/api/v1/alerts`;
+      http.get(url).subscribe();
 
-      const req = httpMock.expectOne('http://localhost:8081/api/v1/alerts');
+      const req = httpMock.expectOne(url);
       expect(req.request.headers.get('Authorization')).toBe('Bearer my-jwt-token');
       req.flush([]);
     });
 
-    it('adds Authorization header to oncall-service requests (port 8086)', () => {
-      http.get('http://localhost:8086/api/v1/oncall').subscribe();
+    it('adds Authorization header to oncallApiUrl requests', () => {
+      const url = `${environment.oncallApiUrl}/api/v1/oncall`;
+      http.get(url).subscribe();
 
-      const req = httpMock.expectOne('http://localhost:8086/api/v1/oncall');
+      const req = httpMock.expectOne(url);
       expect(req.request.headers.get('Authorization')).toBe('Bearer my-jwt-token');
       req.flush([]);
     });
 
     it('calls resetAutoLogoutTimer on every authenticated request', () => {
-      http.get('http://localhost:8082/api/v1/incidents').subscribe();
-      httpMock.expectOne('http://localhost:8082/api/v1/incidents').flush([]);
+      const url = `${environment.apiUrl}/api/v1/incidents`;
+      http.get(url).subscribe();
+      httpMock.expectOne(url).flush([]);
 
       expect(mockAuthService.resetAutoLogoutTimer).toHaveBeenCalledTimes(1);
     });
 
     it('does not mutate the original request object', () => {
-      http.get('http://localhost:8082/api/v1/incidents').subscribe();
+      const url = `${environment.apiUrl}/api/v1/incidents`;
+      http.get(url).subscribe();
 
-      const req = httpMock.expectOne('http://localhost:8082/api/v1/incidents');
-      expect(req.request.url).toBe('http://localhost:8082/api/v1/incidents');
+      const req = httpMock.expectOne(url);
+      expect(req.request.url).toBe(url);
       req.flush([]);
     });
   });
@@ -98,16 +103,18 @@ describe('authInterceptor', () => {
     });
 
     it('does not add Authorization header to backend requests', () => {
-      http.get('http://localhost:8082/api/v1/incidents').subscribe();
+      const url = `${environment.apiUrl}/api/v1/incidents`;
+      http.get(url).subscribe();
 
-      const req = httpMock.expectOne('http://localhost:8082/api/v1/incidents');
+      const req = httpMock.expectOne(url);
       expect(req.request.headers.has('Authorization')).toBe(false);
       req.flush([]);
     });
 
     it('does not call resetAutoLogoutTimer', () => {
-      http.get('http://localhost:8082/api/v1/incidents').subscribe();
-      httpMock.expectOne('http://localhost:8082/api/v1/incidents').flush([]);
+      const url = `${environment.apiUrl}/api/v1/incidents`;
+      http.get(url).subscribe();
+      httpMock.expectOne(url).flush([]);
 
       expect(mockAuthService.resetAutoLogoutTimer).not.toHaveBeenCalled();
     });
@@ -122,7 +129,7 @@ describe('authInterceptor', () => {
       mockAuthService.getToken.mockReturnValue('my-jwt-token');
     });
 
-    it('does not add Authorization header to requests outside backend ports', () => {
+    it('does not add Authorization header to external requests', () => {
       http.get('https://api.external-service.com/data').subscribe();
 
       const req = httpMock.expectOne('https://api.external-service.com/data');

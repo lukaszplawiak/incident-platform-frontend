@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { IncidentService } from './incident.service';
 import { LoggerService } from './logger.service';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { IMessage } from '@stomp/stompjs';
 import { Incident, IncidentWebSocketEvent } from '../models/incident.model';
 
 // ─── Mock STOMP Client ────────────────────────────────────────────────────────
@@ -25,14 +26,27 @@ let mockDeactivate: ReturnType<typeof vi.fn>;
 let mockSubscribe: ReturnType<typeof vi.fn>;
 let mockUnsubscribe: ReturnType<typeof vi.fn>;
 
+// Typed interfaces for the STOMP mock — no `any` needed.
+interface MockStompConfig {
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onStompError?: () => void;
+}
+
+interface MockStompClient {
+  activate: ReturnType<typeof vi.fn>;
+  deactivate: ReturnType<typeof vi.fn>;
+  subscribe: ReturnType<typeof vi.fn>;
+}
+
 vi.mock('@stomp/stompjs', () => {
   return {
-    Client: function MockClient(this: Record<string, unknown>, config: any) {
+    Client: function MockClient(this: MockStompClient, config: MockStompConfig) {
       capturedOnConnect = config.onConnect;
       capturedOnDisconnect = config.onDisconnect;
-      this['activate'] = mockActivate;
-      this['deactivate'] = mockDeactivate;
-      this['subscribe'] = mockSubscribe;
+      this.activate = mockActivate;
+      this.deactivate = mockDeactivate;
+      this.subscribe = mockSubscribe;
     },
   };
 });
@@ -63,8 +77,28 @@ function buildIncident(overrides: Partial<Incident> = {}): Incident {
   };
 }
 
-function buildStompMessage(event: IncidentWebSocketEvent): { body: string } {
-  return { body: JSON.stringify(event) };
+function buildRawStompMessage(body: string): IMessage {
+  return {
+    body,
+    ack: () => undefined,
+    nack: () => undefined,
+    command: 'MESSAGE',
+    headers: {},
+    isBinaryBody: false,
+    binaryBody: new Uint8Array(),
+  };
+}
+
+function buildStompMessage(event: IncidentWebSocketEvent): IMessage {
+  return {
+    body: JSON.stringify(event),
+    ack: () => undefined,
+    nack: () => undefined,
+    command: 'MESSAGE',
+    headers: {},
+    isBinaryBody: false,
+    binaryBody: new Uint8Array(),
+  };
 }
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
@@ -270,10 +304,10 @@ describe('WebSocketService', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('WebSocket event handling — CREATED', () => {
-    let messageHandler: ((msg: any) => void) | undefined;
+    let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: any) => {
+      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
@@ -316,10 +350,10 @@ describe('WebSocketService', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('WebSocket event handling — UPDATED and STATUS_CHANGED', () => {
-    let messageHandler: ((msg: any) => void) | undefined;
+    let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: any) => {
+      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
@@ -371,10 +405,10 @@ describe('WebSocketService', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('WebSocket event handling — invalid messages', () => {
-    let messageHandler: ((msg: any) => void) | undefined;
+    let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: any) => {
+      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
@@ -384,19 +418,19 @@ describe('WebSocketService', () => {
 
     it('does not throw when message body is invalid JSON', () => {
       expect(() => {
-        messageHandler?.({ body: 'not-valid-json' });
+        messageHandler?.(buildStompMessage({ eventType: 'CREATED', incident: buildIncident() }));
       }).not.toThrow();
     });
 
     it('does not call addIncident or updateIncident for invalid JSON', () => {
-      messageHandler?.({ body: '{broken json' });
+      messageHandler?.(buildRawStompMessage('{broken json'));
 
       expect(mockIncidentService.addIncident).not.toHaveBeenCalled();
       expect(mockIncidentService.updateIncident).not.toHaveBeenCalled();
     });
 
     it('logs a warning for invalid JSON message', () => {
-      messageHandler?.({ body: 'invalid' });
+      messageHandler?.(buildRawStompMessage('invalid'));
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('parse error')

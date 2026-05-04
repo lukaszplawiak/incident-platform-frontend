@@ -43,12 +43,4 @@ module.exports = defineConfig([
     rules: {},
   },
 
-  {
-    files: ['**/*.spec.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/array-type': 'off',
-      '@typescript-eslint/consistent-type-definitions': 'off',
-    },
-  },
 ]);

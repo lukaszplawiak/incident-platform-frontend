@@ -9,11 +9,10 @@ import { Router } from '@angular/router';
 import { vi } from 'vitest';
 
 import { AuthService } from './auth.service';
+import { JwtPayload } from '../models/auth.model';
 import { environment } from '../../../environments/environment';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
-
-type JwtPayload = Record<string, unknown>;
 
 function makeJwt(payload: JwtPayload): string {
   const header = btoa(JSON.stringify({ alg: 'HS512', typ: 'JWT' }));
@@ -110,10 +109,25 @@ describe('AuthService', () => {
       expect(service.isAuthenticated()).toBe(false);
     });
 
-    it('returns false for invalid token', () => {
-      sessionStorage.setItem(environment.tokenKey, 'invalid.jwt.token');
+    it('returns false when sessionStorage contains malformed token on startup', () => {
+      // We must set the token BEFORE the service is instantiated,
+      // so the constructor picks it up from sessionStorage.
+      // The outer beforeEach already created the service with an empty storage,
+      // so we create a fresh TestBed here in isolation.
+      sessionStorage.setItem(environment.tokenKey, 'not.a.real.jwt');
 
-      expect(service.isAuthenticated()).toBe(false);
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+        ],
+      });
+
+      const freshService = TestBed.inject(AuthService);
+
+      expect(freshService.isAuthenticated()).toBe(false);
     });
   });
 
@@ -130,11 +144,11 @@ describe('AuthService', () => {
       service.login('user-abc', 'acme-corp').subscribe();
       httpMock.expectOne(matchAuthUrl()).flush({ token: validToken() });
 
-      const user = service.currentUser();
+      const user = service.currentUser() as JwtPayload;
 
       expect(user).not.toBeNull();
-      expect((user as any).sub).toBe('user-abc');
-      expect((user as any).tenantId).toBe('acme-corp');
+      expect(user.sub).toBe('user-abc');
+      expect(user.tenantId).toBe('acme-corp');
     });
 
     it('returns null after logout', () => {

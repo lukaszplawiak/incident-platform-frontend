@@ -1,6 +1,7 @@
 import { HttpInterceptorFn, HttpRequest, HttpHandlerFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../../environments/environment';
 
 export const authInterceptor: HttpInterceptorFn = (
   req: HttpRequest<unknown>,
@@ -23,7 +24,10 @@ export const authInterceptor: HttpInterceptorFn = (
 };
 
 function isBackendRequest(url: string): boolean {
-  return url.includes('localhost:8081') ||
-         url.includes('localhost:8082') ||
-         url.includes('localhost:8086');
+  const backendUrls = [
+    environment.apiUrl,
+    environment.authApiUrl,
+    environment.oncallApiUrl,
+  ];
+  return backendUrls.some(base => url.startsWith(base));
 }

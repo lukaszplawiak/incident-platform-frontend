@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, DestroyRef } from '@angular/core';
+import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { timer } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -28,8 +28,8 @@ export class WebSocketService {
 
   private readonly _connectionState = signal<ConnectionState>('DISCONNECTED');
   readonly connectionState = this._connectionState.asReadonly();
-  readonly isConnected = () => this._connectionState() === 'CONNECTED';
-  readonly isReconnecting = () => this._connectionState() === 'RECONNECTING';
+  readonly isConnected = computed(() => this._connectionState() === 'CONNECTED');
+  readonly isReconnecting = computed(() => this._connectionState() === 'RECONNECTING');
 
   private stompClient: Client | null = null;
   private subscription: StompSubscription | null = null;

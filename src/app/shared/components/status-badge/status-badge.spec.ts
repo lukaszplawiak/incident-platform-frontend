@@ -1,5 +1,6 @@
-import { TestBed } from '@angular/core/testing';
-import { ComponentFixture } from '@angular/core/testing';
+import { ComponentRef } from '@angular/core';
+import { TestBed, ComponentFixture } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 import { StatusBadge } from './status-badge';
 import { IncidentStatus } from '../../../core/models/incident.model';
@@ -9,6 +10,7 @@ import { IncidentStatus } from '../../../core/models/incident.model';
 describe('StatusBadge', () => {
   let fixture: ComponentFixture<StatusBadge>;
   let component: StatusBadge;
+  let componentRef: ComponentRef<StatusBadge>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -17,17 +19,22 @@ describe('StatusBadge', () => {
 
     fixture = TestBed.createComponent(StatusBadge);
     component = fixture.componentInstance;
+    componentRef = fixture.componentRef;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('creates the component', () => {
-    component.status = 'OPEN';
+    componentRef.setInput('status', 'OPEN');
     fixture.detectChanges();
 
     expect(component).toBeTruthy();
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // label getter
+  // label computed signal
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('label', () => {
@@ -41,37 +48,33 @@ describe('StatusBadge', () => {
 
     cases.forEach(({ status, expectedLabel }) => {
       it(`returns "${expectedLabel}" for status ${status}`, () => {
-        component.status = status;
+        componentRef.setInput('status', status);
 
-        expect(component.label).toBe(expectedLabel);
+        expect(component.label()).toBe(expectedLabel);
       });
     });
 
     it('covers all five IncidentStatus values', () => {
       const allStatuses: IncidentStatus[] = [
-        'OPEN',
-        'ACKNOWLEDGED',
-        'ESCALATED',
-        'RESOLVED',
-        'CLOSED',
+        'OPEN', 'ACKNOWLEDGED', 'ESCALATED', 'RESOLVED', 'CLOSED',
       ];
 
       allStatuses.forEach((status) => {
-        component.status = status;
-        expect(component.label).not.toBe(status);
+        componentRef.setInput('status', status);
+        expect(component.label()).not.toBe(status);
       });
     });
 
     it('returns human-readable label (title case, not uppercase enum)', () => {
-      component.status = 'ACKNOWLEDGED';
+      componentRef.setInput('status', 'ACKNOWLEDGED');
 
-      expect(component.label).toBe('Acknowledged');
-      expect(component.label).not.toBe('ACKNOWLEDGED');
+      expect(component.label()).toBe('Acknowledged');
+      expect(component.label()).not.toBe('ACKNOWLEDGED');
     });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // cssClass getter
+  // cssClass computed signal
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('cssClass', () => {
@@ -85,32 +88,28 @@ describe('StatusBadge', () => {
 
     cases.forEach(({ status, expectedClass }) => {
       it(`returns "${expectedClass}" for status ${status}`, () => {
-        component.status = status;
+        componentRef.setInput('status', status);
 
-        expect(component.cssClass).toBe(expectedClass);
+        expect(component.cssClass()).toBe(expectedClass);
       });
     });
 
     it('always includes the base "status-badge" class', () => {
       const allStatuses: IncidentStatus[] = [
-        'OPEN',
-        'ACKNOWLEDGED',
-        'ESCALATED',
-        'RESOLVED',
-        'CLOSED',
+        'OPEN', 'ACKNOWLEDGED', 'ESCALATED', 'RESOLVED', 'CLOSED',
       ];
 
       allStatuses.forEach((status) => {
-        component.status = status;
-        expect(component.cssClass).toContain('status-badge');
+        componentRef.setInput('status', status);
+        expect(component.cssClass()).toContain('status-badge');
       });
     });
 
     it('uses lowercase status name in the BEM modifier class', () => {
-      component.status = 'ACKNOWLEDGED';
+      componentRef.setInput('status', 'ACKNOWLEDGED');
 
-      expect(component.cssClass).toContain('acknowledged');
-      expect(component.cssClass).not.toContain('ACKNOWLEDGED');
+      expect(component.cssClass()).toContain('acknowledged');
+      expect(component.cssClass()).not.toContain('ACKNOWLEDGED');
     });
   });
 });

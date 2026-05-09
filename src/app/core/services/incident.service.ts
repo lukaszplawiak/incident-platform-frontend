@@ -66,15 +66,16 @@ export class IncidentService {
   loadIncidents(filter?: IncidentFilter): void {
     this._loading.set(true);
     this._error.set(null);
-    this._sortState.set(null);
 
     this.logger.debug('Loading incidents', { filter });
 
     let params = new HttpParams();
-    if (filter?.status) params = params.set('status', filter.status);
-    if (filter?.severity) params = params.set('severity', filter.severity);
+    if (filter?.status)    params = params.set('status', filter.status);
+    if (filter?.severity)  params = params.set('severity', filter.severity);
     if (filter?.page !== undefined) params = params.set('page', filter.page.toString());
     if (filter?.size !== undefined) params = params.set('size', filter.size.toString());
+    if (filter?.sort)      params = params.set('sort', filter.sort);
+    if (filter?.direction) params = params.set('direction', filter.direction);
 
     this.http.get<PageResponse<Incident>>(this.apiUrl, { params }).pipe(
       takeUntilDestroyed(this.destroyRef)
@@ -201,7 +202,7 @@ export class IncidentService {
     });
   }
 
-  sortIncidents(column: SortColumn): void {
+  getSortParams(column: SortColumn): { sort: SortColumn; direction: SortDirection } {
     const current = this._sortState();
 
     const direction: SortDirection =
@@ -211,40 +212,9 @@ export class IncidentService {
 
     this._sortState.set({ column, direction });
 
-    this._incidents.update(incidents => {
-      return [...incidents].sort((a, b) => {
-        let aVal = '';
-        let bVal = '';
+    this.logger.debug('Sort params updated', { column, direction });
 
-        switch (column) {
-          case 'severity': {
-            const order: Record<string, number> = {
-              'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3
-            };
-            aVal = String(order[a.severity] ?? 99);
-            bVal = String(order[b.severity] ?? 99);
-            break;
-          }
-          case 'status':
-            aVal = a.status;
-            bVal = b.status;
-            break;
-          case 'openedAt':
-            aVal = a.openedAt;
-            bVal = b.openedAt;
-            break;
-          case 'title':
-            aVal = a.title.toLowerCase();
-            bVal = b.title.toLowerCase();
-            break;
-        }
-
-        const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-        return direction === 'asc' ? comparison : -comparison;
-      });
-    });
-
-    this.logger.debug('Incidents sorted', { column, direction });
+    return { sort: column, direction };
   }
 
   addIncident(incident: Incident): void {
@@ -257,7 +227,7 @@ export class IncidentService {
       id: incident.id,
       severity: incident.severity
     });
-}
+  }
 
   updateIncident(incident: Incident): void {
     this._incidents.update(incidents =>

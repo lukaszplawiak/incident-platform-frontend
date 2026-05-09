@@ -43,6 +43,8 @@ export interface IncidentFilter {
   severity?: IncidentSeverity;
   page?: number;
   size?: number;
+  sort?: SortColumn;
+  direction?: SortDirection;
 }
 
 export interface PageResponse<T> {

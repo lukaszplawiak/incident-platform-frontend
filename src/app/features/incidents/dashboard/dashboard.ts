@@ -125,7 +125,7 @@ export class Dashboard implements OnInit, OnDestroy {
   onFilterChange(filter: IncidentFilterModel): void {
     this.currentFilter = filter;
     this.logger.debug('Filter changed', { filter });
-    this.incidentService.loadIncidents(filter);
+    this.incidentService.loadIncidents(this.currentFilter);
     this.lastRefreshedAt.set(new Date());
   }
 
@@ -136,7 +136,10 @@ export class Dashboard implements OnInit, OnDestroy {
 
   onSort(column: SortColumn): void {
     this.logger.debug('Sort changed', { column });
-    this.incidentService.sortIncidents(column);
+    const sortParams = this.incidentService.getSortParams(column);
+    this.currentFilter = { ...this.currentFilter, ...sortParams, page: 0 };
+    this.incidentService.loadIncidents(this.currentFilter);
+    this.lastRefreshedAt.set(new Date());
   }
 
   onAcknowledge(incidentId: string): void {

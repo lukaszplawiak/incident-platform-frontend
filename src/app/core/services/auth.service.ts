@@ -2,7 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, interval, map } from 'rxjs';
+import { Observable, tap, interval, map, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthResponse, JwtPayload } from '../models/auth.model';
 
@@ -40,6 +40,7 @@ export class AuthService {
 
   readonly sessionRemainingMs = toSignal(
     interval(1000).pipe(
+      filter(() => this.tokenSignal() !== null),
       map(() => {
         const token = this.tokenSignal();
         if (!token) return null;

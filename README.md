@@ -1,61 +1,30 @@
 # Incident Platform — Frontend
 
-> Angular 21 SPA for the [Incident Platform](https://github.com/your-username/incident-platform) backend.
-> Built to demonstrate full-stack capability alongside a production-grade Java/Spring Boot microservices backend.
+[![Angular](https://img.shields.io/badge/Angular-21-DD0031?logo=angular&logoColor=white)](https://angular.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vitest](https://img.shields.io/badge/Vitest-4-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Nginx](https://img.shields.io/badge/Nginx-Alpine-009639?logo=nginx&logoColor=white)](https://nginx.org/)
+[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-2563eb)](LICENSE)
+
+Angular 21 SPA companion to the [Incident Platform](https://github.com/lukaszplawiak/incident-platform) backend — a production-grade Java/Spring Boot microservices system. Built to demonstrate full-stack capability with modern Angular patterns: Signals, standalone components, and real-time WebSocket updates.
+
+[Overview](#overview) | [Architecture](#architecture) | [Design Decisions](#design-decisions) | [Tech Stack](#tech-stack) | [Resilience & Security](#resilience--security) | [Running Locally](#running-locally) | [Docker](#docker) | [Running Tests](#running-tests) | [Project Structure](#project-structure)
 
 ---
 
 ## Overview
 
-A real-time incident management dashboard that consumes the Incident Platform REST and WebSocket APIs. Operators can monitor, filter, sort, acknowledge and resolve incidents — with live updates pushed over WebSocket without polling.
+A real-time incident management dashboard that consumes the Incident Platform REST and WebSocket APIs. Operators monitor, filter, sort, acknowledge and resolve incidents — with live updates pushed over WebSocket without polling.
 
----
+### What the frontend covers
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Angular 21 — standalone components, Signals |
-| Language | TypeScript 5.9, strict mode |
-| Reactive | RxJS 7.8, Angular Signals, `toSignal()` |
-| Real-time | STOMP over WebSocket (`@stomp/stompjs`) |
-| HTTP | Angular `HttpClient`, functional interceptors |
-| Forms | Angular Reactive Forms |
-| Testing | Vitest 4 via `@angular/build:unit-test` |
-| Linting | ESLint + `angular-eslint` + `typescript-eslint` |
-| Container | Docker multi-stage build — Node builder + Nginx Alpine runtime |
-| Server | Nginx with security headers, gzip, SPA routing, aggressive asset caching |
-
----
-
-## Features
-
-### Real-time Dashboard
-- Live incident list with WebSocket updates — no manual refresh needed
-- Automatic fallback to polling every 30 seconds when WebSocket is offline
-- WebSocket exponential backoff reconnect (1s → 2s → 4s → max 30s)
-- Visual connection state indicator (Connected / Reconnecting / Offline)
-
-### Incident Management
-- Filter by severity (Critical / High / Medium / Low) and status
-- Client-side sorting by severity, title, status, opened date
-- Server-side pagination
-- Acknowledge / Resolve with optimistic UI update and automatic rollback on error
-- Incident detail view with audit log and postmortem
-
-### Security
-- JWT stored in `sessionStorage` (tab-isolated, cleared on close)
-- Auth interceptor attaches `Authorization: Bearer` only to backend requests
-- Idle detection — auto-logout after configurable inactivity period
-- Session expiry warning with countdown and extend option
-- Global error handler — unhandled errors redirect to `/error`
-- HTTP 401 → logout, HTTP 403 → `/forbidden`
-
-### UX
-- Toast notifications for all state changes
-- Skeleton loading states
-- Retry with exponential backoff for HTTP 503 and network errors
-- User-friendly error messages (no raw HTTP status codes exposed)
+- **Real-time dashboard** — incident list updated live via STOMP over WebSocket, automatic fallback to polling when WebSocket is offline
+- **Incident lifecycle** — acknowledge and resolve incidents with optimistic UI updates and automatic rollback on error
+- **Filtering and pagination** — filter by severity and status, sort by multiple columns, server-side pagination
+- **Incident detail** — audit log timeline and AI-generated postmortem draft per incident
+- **Session management** — idle detection with countdown warning, auto-logout, HTTP 401/403 handling
+- **Toast notifications** — feedback for every state change, error, and WebSocket connection event
 
 ---
 
@@ -63,50 +32,50 @@ A real-time incident management dashboard that consumes the Incident Platform RE
 
 ```
 src/app/
-├── core/
-│   ├── guards/          # authGuard — CanActivateFn
-│   ├── handlers/        # GlobalErrorHandler
-│   ├── interceptors/    # authInterceptor, errorInterceptor
-│   ├── models/          # TypeScript interfaces (domain types)
+├── core/                          # Application-wide singletons
+│   ├── guards/                    # authGuard — CanActivateFn
+│   ├── handlers/                  # GlobalErrorHandler — unhandled errors → /error
+│   ├── interceptors/              # authInterceptor, errorInterceptor
+│   ├── models/                    # TypeScript interfaces (domain types)
 │   └── services/
-│       ├── auth.service.ts        # JWT decode, Signals state, auto-logout
+│       ├── auth.service.ts        # JWT decode, Signals state, auto-logout timer
 │       ├── incident.service.ts    # Signals state management + HTTP
 │       ├── websocket.service.ts   # STOMP client, reconnect, event routing
 │       ├── idle.service.ts        # Activity monitoring, idle timeout
-│       └── logger.service.ts      # Leveled console logger (DEBUG/INFO/WARN/ERROR)
+│       └── logger.service.ts     # Leveled console logger (DEBUG/INFO/WARN/ERROR)
 │
 ├── features/
-│   ├── auth/login/
-│   ├── errors/          # forbidden, error pages
+│   ├── auth/login/                # Login form — token input
+│   ├── errors/                    # /error and /forbidden pages
 │   └── incidents/
-│       ├── dashboard/           # Main view — orchestrates all children
-│       ├── incident-detail/     # Detail + audit log + postmortem
-│       ├── incident-list/       # Table with sort headers (OnPush)
-│       ├── incident-filter/     # Reactive form filter (OnPush)
-│       ├── incident-pagination/ # Page controls (OnPush)
-│       ├── incident-row/        # Single table row (OnPush)
-│       ├── incident-audit/      # Audit log tab
-│       └── incident-postmortem/ # Postmortem tab
+│       ├── dashboard/             # Main view — orchestrates all children
+│       ├── incident-detail/       # Detail + audit log + postmortem tabs
+│       ├── incident-list/         # Table with sort headers (OnPush)
+│       ├── incident-filter/       # Reactive form filter (OnPush)
+│       ├── incident-pagination/   # Page controls (OnPush)
+│       ├── incident-row/          # Single table row (OnPush)
+│       ├── incident-audit/        # Audit log tab
+│       └── incident-postmortem/   # Postmortem tab
 │
 └── shared/
     └── components/
-        ├── severity-badge/   # Signal input + computed
-        ├── status-badge/     # Signal input + computed
-        └── toast/            # Notification overlay
+        ├── severity-badge/        # Signal input + computed CSS class
+        ├── status-badge/          # Signal input + computed CSS class
+        └── toast/                 # Notification overlay service + component
 ```
 
 ### State Management
 
-No NgRx — state is managed with Angular Signals directly in services:
+No NgRx — state is managed with Angular Signals directly in services. Signals expose readonly state to components; WebSocket events and HTTP responses update state in-place:
 
 ```typescript
-// Signals expose readonly state
+// Readonly state exposed to components
 readonly incidents = this._incidents.asReadonly();
 readonly criticalCount = computed(() =>
   this._incidents().filter(i => i.severity === 'CRITICAL').length
 );
 
-// WebSocket events update state in-place
+// WebSocket event updates state without polling
 addIncident(incident: Incident): void {
   const exists = this._incidents().some(i => i.id === incident.id);
   if (exists) return;
@@ -115,67 +84,137 @@ addIncident(incident: Incident): void {
 }
 ```
 
-### Optimistic Updates
+### WebSocket Flow
 
-Status changes are applied immediately to the UI. If the server returns an error, the previous state is restored automatically:
+```
+STOMP connect → subscribe /topic/incidents/{tenantId}
+      │
+      ├── IncidentOpenedEvent   → addIncident()
+      ├── IncidentUpdatedEvent  → updateIncident()
+      └── IncidentResolvedEvent → updateIncident()
 
-```typescript
-updateStatus(id: string, request: UpdateStatusRequest): void {
-  const previousIncidents = this._incidents();      // snapshot
-  this.applyOptimisticUpdate(id, request.status);   // update UI immediately
-
-  this.http.patch(url, request).subscribe({
-    next: updated => { /* apply server response */ },
-    error: () => {
-      this._incidents.set(previousIncidents);        // rollback
-      this.toastService.error('Update failed');
-    }
-  });
-}
+Disconnected → exponential backoff reconnect (1s → 2s → 4s → max 30s)
+             → fallback to HTTP polling every 30s
+             → visual indicator: Connected / Reconnecting / Offline
 ```
 
 ---
 
-## Getting Started
+## Design Decisions
+
+**Why Angular Signals instead of NgRx?**
+NgRx adds significant boilerplate (actions, reducers, selectors, effects) for a dashboard of this scope. Angular Signals provide fine-grained reactivity with less code and full integration with Angular change detection. The `computed()` primitive replaces selectors; `effect()` replaces effects for WebSocket subscriptions. Migration to NgRx would require changing only the service layer — components consume readonly signals regardless of what manages them.
+
+**Why `OnPush` change detection on all list components?**
+The incident list can contain many rows. With default change detection, every Angular check cycle re-evaluates every component in the tree. `OnPush` limits re-rendering to when Signal inputs change — a row only re-renders when its specific incident object changes, not when any other incident in the list changes.
+
+**Why optimistic updates instead of waiting for the server?**
+Acknowledge and resolve are the most frequent user actions. Waiting for the server response before updating the UI makes the dashboard feel slow. Optimistic update applies the change immediately and rolls back silently if the server returns an error — the user sees correct state in both success and failure cases.
+
+**Why STOMP over raw WebSocket?**
+Raw WebSocket is a transport — it has no concept of topics, subscriptions, or acknowledgment. STOMP adds a lightweight pub/sub layer: the frontend subscribes to `/topic/incidents/{tenantId}` and only receives events for its own tenant. The backend Spring WebSocket broker handles routing.
+
+**Why JWT in `sessionStorage` instead of `localStorage` or cookies?**
+`localStorage` persists across tabs and survives browser close — a lost laptop with an open browser means an active session. `sessionStorage` is tab-isolated and cleared on tab close. HttpOnly cookies would be most secure but require backend CORS and cookie configuration changes. `sessionStorage` is a documented tradeoff for a portfolio context.
+
+**Why idle detection in the client instead of short-lived tokens?**
+Short JWT expiry forces frequent re-authentication — bad UX. Idle detection logs out after a configurable inactivity period (default 15 minutes) while keeping the session alive for active users. The countdown warning gives users a chance to extend before logout.
+
+**Why a leveled `LoggerService` instead of `console.log`?**
+Direct `console.log` calls cannot be suppressed without removing them from source. `LoggerService` wraps console methods with a minimum log level — in production the level is set to `WARN`, suppressing all `DEBUG` and `INFO` output without code changes.
+
+**Why Vitest instead of Karma/Jasmine?**
+Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test runs are significantly faster and integrate with the Angular 21 `@angular/build:unit-test` builder natively. The API is Jest-compatible: `vi.useFakeTimers()` and `vi.mock()` work without additional setup.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Framework | Angular 21 — standalone components, Signals | Fine-grained reactivity without NgRx boilerplate |
+| Language | TypeScript 5.9, strict mode | Type safety across all service and component boundaries |
+| Reactive | Angular Signals, `computed()`, `toSignal()` | Replaces NgRx for state, integrates with change detection |
+| Real-time | STOMP over WebSocket (`@stomp/stompjs`) | Pub/sub topics, tenant-scoped subscriptions |
+| HTTP | Angular `HttpClient`, functional interceptors | Composable auth and error handling without class decorators |
+| Forms | Angular Reactive Forms | Typed form controls, `valueChanges` stream for filter debounce |
+| Change Detection | `OnPush` on all list components | Prevents unnecessary re-renders in large incident lists |
+| Testing | Vitest 4 via `@angular/build:unit-test` | Fast Node.js runner, no browser launch, Jest-compatible API |
+| Linting | ESLint + `angular-eslint` + `typescript-eslint` | Angular-specific rules, strict TypeScript enforcement |
+| Container | Docker multi-stage (Node 20 builder + Nginx Alpine) | ~50MB final image, no Node.js in production |
+| Server | Nginx with security headers, gzip, SPA routing | Content-hashed asset caching, `no-store` for `index.html` |
+
+---
+
+## Resilience & Security
+
+### WebSocket Resilience
+
+- **Exponential backoff reconnect**: 1s → 2s → 4s → ... → max 30s — recovers from network interruptions without hammering the server
+- **Automatic polling fallback**: when WebSocket is offline, falls back to HTTP polling every 30 seconds — dashboard stays usable
+- **Visual connection indicator**: operators always know whether they are seeing live data (Connected / Reconnecting / Offline)
+
+### HTTP Resilience
+
+- **Retry with exponential backoff**: `errorInterceptor` retries on HTTP 503 and network errors — transient backend restarts don't surface to the user
+- **Optimistic update rollback**: failed acknowledge/resolve requests restore the previous incident state automatically
+- **Skeleton loading states**: components show placeholders during data fetch — no layout shift on load
+
+### Security
+
+- **JWT in `sessionStorage`**: tab-isolated, cleared on tab close — no cross-tab session sharing
+- **`authInterceptor`**: attaches `Authorization: Bearer` only to configured backend origins — token never sent to third-party URLs
+- **Idle detection**: auto-logout after configurable inactivity; countdown warning with extend option
+- **HTTP 401**: clears session and redirects to login
+- **HTTP 403**: redirects to `/forbidden` page
+- **`GlobalErrorHandler`**: catches all unhandled Angular errors and redirects to `/error` — no raw stack traces exposed to the user
+- **Nginx security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Content-Security-Policy`, `server_tokens off`
+- **Asset caching strategy**: static JS/CSS cached 1 year (content-hashed filenames), `index.html` never cached (`no-store`) — stale assets never served after deployment
+
+---
+
+## Running Locally
 
 ### Prerequisites
 
 - Node.js 20+
-- Running [Incident Platform backend](https://github.com/your-username/incident-platform)
+- Running [Incident Platform backend](https://github.com/lukaszplawiak/incident-platform) — see backend README for setup instructions
 
-### Development
+### Step 1 — Install dependencies
 
 ```bash
 npm install
+```
+
+### Step 2 — Start the dev server
+
+```bash
 ng serve
+# or
+npm start
 ```
 
-App runs at `http://localhost:4200`. Proxies API calls to `localhost:8081` / `8082` / `8086`.
+App runs at `http://localhost:4200`. API calls are proxied to the backend services:
+- `http://localhost:8081` — ingestion-service
+- `http://localhost:8082` — incident-service
+- `http://localhost:8086` — oncall-service
 
-### Login
+### Step 3 — Log in
 
-The backend exposes a dev token endpoint:
+Generate a dev token from the backend (local profile only):
 
 ```bash
-curl "http://localhost:8082/dev/token?tenantId=acme-corp&role=ROLE_ADMIN"
+curl -s "http://localhost:8082/dev/token?userId=11111111-1111-1111-1111-111111111111&tenantId=test-tenant&email=admin@test.com&roles=ROLE_ADMIN" | jq -r .token
 ```
 
-Copy the token, paste it into the login form.
+Copy the token and paste it into the login form at `http://localhost:4200/login`.
 
-### Run Tests
-
-```bash
-# All tests
-ng test --watch=false
-
-# Single file
-ng test --watch=false --include="**/auth.service.spec.ts"
-```
-
-### Build
+### Step 4 — Build for production
 
 ```bash
 ng build --configuration production
+# or
+npm run build
 ```
 
 Output in `dist/incident-platform-frontend/browser/`.
@@ -183,6 +222,8 @@ Output in `dist/incident-platform-frontend/browser/`.
 ---
 
 ## Docker
+
+### Build and run
 
 ```bash
 # Build image
@@ -192,49 +233,142 @@ docker build -t incident-platform-frontend .
 docker run -p 80:80 incident-platform-frontend
 ```
 
-The multi-stage Dockerfile produces a ~50 MB image:
-- **Stage 1** — Node 20 Alpine: `npm ci` + `ng build --configuration production`
-- **Stage 2** — Nginx Alpine: serves static files only, no Node.js in the final image
+App available at `http://localhost`.
 
-### Nginx Configuration
+### Multi-stage build
 
-- SPA routing — all paths fall back to `index.html`
-- Static assets cached for 1 year (content-hashed filenames)
-- `index.html` never cached (`no-store`)
-- Gzip compression for JS, CSS, JSON, SVG
-- Security headers: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`
-- `server_tokens off` — Nginx version not exposed
+The Dockerfile produces a ~50MB image with no Node.js in the final image:
+
+```
+Stage 1 — Node 20 Alpine (builder)
+  npm ci --omit=dev
+  ng build --configuration production
+
+Stage 2 — Nginx Alpine (runtime)
+  static files from Stage 1 only
+  nginx.conf (SPA routing, gzip, caching)
+  security-headers.conf
+```
+
+### Nginx configuration highlights
+
+- **SPA routing**: all paths fall back to `index.html` — client-side routes work on direct load and refresh
+- **Static asset caching**: JS, CSS, fonts cached for 1 year — Angular appends content hashes to filenames, so the cache is always correct after deployment
+- **`index.html` never cached**: `Cache-Control: no-cache, no-store` — users always get the latest entry point pointing to current hashed assets
+- **Gzip**: enabled for JS, CSS, JSON, SVG — reduces transfer size for text assets
+- **Security headers in every `location {}`**: Nginx does not inherit `add_header` from `server {}` when a `location {}` defines its own `add_header` — headers are repeated explicitly in each block to guarantee they are sent for every response
+- **`server_tokens off`**: Nginx version not exposed in response headers
 
 ---
 
-## Testing Strategy
+## Running Tests
+
+```bash
+# All tests, single run
+ng test --watch=false
+
+# Watch mode during development
+ng test
+
+# Single spec file
+ng test --watch=false --include="**/auth.service.spec.ts"
+```
+
+### What is tested
 
 Unit tests cover business logic — not templates, not CSS, not Angular internals.
 
-| What | Why |
+| Test | What it covers |
 |---|---|
-| `AuthService` | JWT decode, signal state, auto-logout timer |
-| `IncidentService` | Signal state management, HTTP params, optimistic update rollback |
-| `WebSocketService` | STOMP mock, connection states, event routing, reconnect |
-| `IdleService` | Timer logic, activity detection |
-| `LoggerService` | Log level filtering |
-| `authGuard` | UrlTree redirect vs boolean return |
-| `authInterceptor` | Bearer token attachment, external URL exclusion |
-| `errorInterceptor` | Retry logic, 401/403 side effects, user-friendly messages |
-| `SeverityBadge` | Signal computed outputs |
-| `StatusBadge` | Signal computed outputs |
+| `auth.service.spec.ts` | JWT decode, Signal state, auto-logout timer |
+| `incident.service.spec.ts` | Signal state management, HTTP params, optimistic update rollback |
+| `websocket.service.spec.ts` | STOMP mock, connection states, event routing, reconnect logic |
+| `idle.service.spec.ts` | Timer logic, activity detection, countdown |
+| `logger.service.spec.ts` | Log level filtering — DEBUG suppressed in production |
+| `auth.guard.spec.ts` | `UrlTree` redirect vs boolean return |
+| `auth.interceptor.spec.ts` | Bearer token attachment, external URL exclusion |
+| `error.interceptor.spec.ts` | Retry logic, 401/403 side effects, user-friendly messages |
+| `severity-badge.spec.ts` | Signal `computed()` CSS class outputs |
+| `status-badge.spec.ts` | Signal `computed()` CSS class outputs |
 
-**Not unit tested** (covered by backend E2E / manual): Dashboard composition, template rendering, routing.
+**Tools**: Vitest 4 · `HttpTestingController` for HTTP · `vi.useFakeTimers()` for timers · `vi.mock()` for STOMP client
 
-**Tools:** Vitest 4 via `@angular/build:unit-test` · `HttpTestingController` for HTTP · `vi.useFakeTimers()` for timers · `vi.mock()` for STOMP client
+**Not unit tested** (covered by backend E2E or manual): dashboard composition, template rendering, routing integration.
 
 ---
 
-## Project Context
+## Project Structure
 
-This frontend is a companion to the [Incident Platform backend](https://github.com/your-username/incident-platform) — a Java 21 / Spring Boot 3.5 microservices system with Kafka, PostgreSQL, Redis, ShedLock and Kubernetes deployment.
+```
+incident-platform-frontend/
+├── src/
+│   ├── app/
+│   │   ├── app.ts                 # Root component
+│   │   ├── app.config.ts          # provideRouter, provideHttpClient, interceptors
+│   │   ├── app.routes.ts          # Lazy-loaded routes: /login, /incidents, /error, /forbidden
+│   │   │
+│   │   ├── core/
+│   │   │   ├── guards/
+│   │   │   │   └── auth.guard.ts              # Redirects unauthenticated users to /login
+│   │   │   ├── handlers/
+│   │   │   │   └── global-error.handler.ts    # Catches unhandled errors → /error
+│   │   │   ├── interceptors/
+│   │   │   │   ├── auth.interceptor.ts        # Attaches Bearer token to backend requests
+│   │   │   │   └── error.interceptor.ts       # Retry, 401/403 redirect, user-friendly messages
+│   │   │   ├── models/
+│   │   │   │   ├── incident.model.ts          # Incident, IncidentStatus, Severity
+│   │   │   │   ├── audit-event.model.ts       # AuditEvent
+│   │   │   │   ├── postmortem.model.ts        # Postmortem, PostmortemStatus
+│   │   │   │   └── auth.model.ts              # TokenPayload, LoginResponse
+│   │   │   └── services/
+│   │   │       ├── auth.service.ts            # JWT parse, isAuthenticated signal, logout
+│   │   │       ├── incident.service.ts        # incidents signal, HTTP CRUD, optimistic update
+│   │   │       ├── websocket.service.ts       # STOMP connect/reconnect, tenant subscription
+│   │   │       ├── idle.service.ts            # Inactivity timer, session extension
+│   │   │       └── logger.service.ts          # Leveled logger — WARN level in production
+│   │   │
+│   │   ├── features/
+│   │   │   ├── auth/login/
+│   │   │   │   └── login.ts                   # Token input form, login action
+│   │   │   ├── errors/
+│   │   │   │   ├── error/error.ts             # Generic error page
+│   │   │   │   └── forbidden/forbidden.ts     # HTTP 403 page
+│   │   │   └── incidents/
+│   │   │       ├── dashboard/dashboard.ts     # Orchestrator: loads incidents, manages WS
+│   │   │       ├── incident-detail/           # Detail view with audit + postmortem tabs
+│   │   │       ├── incident-list/             # Table, sort headers, OnPush
+│   │   │       ├── incident-filter/           # Reactive form filter, debounced valueChanges
+│   │   │       ├── incident-pagination/       # Page size + page number controls
+│   │   │       ├── incident-row/              # Single row, OnPush, action buttons
+│   │   │       ├── incident-audit/            # Chronological audit event list
+│   │   │       └── incident-postmortem/       # Postmortem draft display
+│   │   │
+│   │   └── shared/
+│   │       └── components/
+│   │           ├── severity-badge/            # CRITICAL/HIGH/MEDIUM/LOW with color
+│   │           ├── status-badge/              # OPEN/ACKNOWLEDGED/RESOLVED/CLOSED with color
+│   │           └── toast/                     # Toast service + overlay component
+│   │
+│   ├── environments/
+│   │   ├── environment.ts         # Development: API URLs, log level DEBUG
+│   │   └── environment.prod.ts    # Production: API URLs, log level WARN
+│   └── styles.scss                # Global styles
+│
+├── Dockerfile                     # Multi-stage: Node 20 builder + Nginx Alpine runtime (~50MB)
+├── nginx.conf                     # SPA routing, gzip, asset caching strategy
+├── security-headers.conf          # X-Frame-Options, CSP, Referrer-Policy, X-Content-Type-Options
+├── angular.json                   # Build, test (Vitest), lint configuration
+├── tsconfig.json                  # TypeScript strict mode
+└── eslint.config.js               # ESLint + angular-eslint + typescript-eslint rules
+```
 
-The frontend was built to demonstrate full-stack capability. The primary portfolio focus is the backend — this SPA shows ability to work across the stack with modern Angular patterns.
+---
+
+## Backend
+
+This frontend requires the [Incident Platform backend](https://github.com/lukaszplawiak/incident-platform) — a Java 21 / Spring Boot 3.5 microservices system with Kafka, PostgreSQL, Redis, and Kubernetes deployment. See the backend README for full setup instructions.
+
+The primary portfolio focus is the backend. This SPA demonstrates the ability to work across the full stack with modern Angular patterns.
 
 ---
 

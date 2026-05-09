@@ -38,6 +38,11 @@ export class AuthService {
   readonly tenantId = computed(() => this.currentUser()?.tenantId ?? null);
   readonly userId = computed(() => this.currentUser()?.sub ?? null);
 
+  // interval(1000) runs for the entire lifetime of the app because AuthService
+  // is providedIn: 'root' and is never destroyed.
+  // The filter() operator short-circuits each tick when no token is present —
+  // no decoding, no arithmetic, no signal reads beyond the token check itself.
+  // This avoids unnecessary work while the user is logged out or before login.
   readonly sessionRemainingMs = toSignal(
     interval(1000).pipe(
       filter(() => this.tokenSignal() !== null),
@@ -60,6 +65,30 @@ export class AuthService {
     return remaining <= this.WARNING_THRESHOLD_MS;
   });
 
+  // ─── Dual logout timer design ───────────────────────────────────────────────
+  //
+  // The application uses two independent timers that can both trigger logout:
+  //
+  // 1. autoLogoutTimer (this service) — fires when Math.min(tokenExpiry, inactivityTimeout)
+  //    is reached. It is set once on login and reset by resetAutoLogoutTimer() on every
+  //    authenticated HTTP request (via authInterceptor). This ensures the session ends
+  //    no later than the JWT expiry, regardless of user activity.
+  //
+  // 2. IdleService timer — fires after a period of zero user interaction
+  //    (no mouse, keyboard, click, scroll or touch events). It is reset on every
+  //    user activity event. This covers the case where the user walks away from
+  //    the machine without making any HTTP requests.
+  //
+  // Why two timers instead of one:
+  // - autoLogoutTimer handles absolute expiry (token-bound upper limit).
+  // - IdleService handles inactivity (user-behaviour-bound limit).
+  // - Either can fire first depending on which threshold is reached sooner.
+  // - Both call authService.logout() — the second call is a no-op because
+  //   logout() clears the token and navigates to /login, making isAuthenticated()
+  //   return false on subsequent calls.
+  //
+  // This is intentional, not a bug.
+  // ───────────────────────────────────────────────────────────────────────────
   private autoLogoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {

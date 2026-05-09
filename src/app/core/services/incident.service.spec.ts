@@ -9,9 +9,6 @@ import { Incident, IncidentFilter, PageResponse } from '../models/incident.model
 import { environment } from '../../../environments/environment';
 
 // ─── Test data factories ──────────────────────────────────────────────────────
-//
-// Factories tworzą minimalne poprawne obiekty domeny.
-// Partial<Incident> pozwala nadpisać tylko pola istotne dla danego testu.
 
 function buildIncident(overrides: Partial<Incident> = {}): Incident {
   return {
@@ -141,7 +138,6 @@ describe('IncidentService', () => {
 
       expect(service.loading()).toBe(true);
 
-      // Sprzątamy — odpowiadamy na request żeby httpMock.verify() przeszło
       httpMock.expectOne((r) => r.url === API_URL).flush(buildPage([]));
     });
 
@@ -188,7 +184,6 @@ describe('IncidentService', () => {
     });
 
     it('clears error before fetching', () => {
-      // Ustaw błąd z poprzedniego wywołania
       service.loadIncidents();
       httpMock.expectOne((r) => r.url === API_URL).flush(
         {},
@@ -196,7 +191,6 @@ describe('IncidentService', () => {
       );
       expect(service.hasError()).toBe(true);
 
-      // Drugie wywołanie powinno wyczyścić błąd
       service.loadIncidents();
       expect(service.error()).toBeNull();
 
@@ -362,7 +356,6 @@ describe('IncidentService', () => {
 
   describe('updateIncident', () => {
     beforeEach(() => {
-      // Załaduj listę z dwoma incydentami
       service.loadIncidents();
       httpMock.expectOne((r) => r.url === API_URL).flush(
         buildPage([
@@ -417,13 +410,12 @@ describe('IncidentService', () => {
       const updated = buildIncident({ id: 'i-1', status: 'ACKNOWLEDGED' });
       service.updateIncident(updated);
 
-      // selectedIncident jest i-2 — nie powinno się zmienić
       expect(service.selectedIncident()?.id).toBe('i-2');
       expect(service.selectedIncident()?.status).toBe('OPEN');
     });
 
     it('updates criticalCount when severity changes', () => {
-      expect(service.criticalCount()).toBe(1); // i-1 jest CRITICAL
+      expect(service.criticalCount()).toBe(1);
 
       service.updateIncident(buildIncident({ id: 'i-1', severity: 'LOW', status: 'OPEN' }));
 
@@ -462,7 +454,6 @@ describe('IncidentService', () => {
     it('applies optimistic update immediately before server responds', () => {
       service.updateStatus('i-1', { status: 'ACKNOWLEDGED' });
 
-      // Sprawdzamy PRZED flush — optimistic update powinien być natychmiastowy
       expect(service.incidents().find((i) => i.id === 'i-1')?.status).toBe('ACKNOWLEDGED');
 
       httpMock.expectOne(`${API_URL}/i-1/status`).flush(
@@ -498,16 +489,13 @@ describe('IncidentService', () => {
     it('rolls back optimistic update when server returns error', () => {
       service.updateStatus('i-1', { status: 'ACKNOWLEDGED' });
 
-      // Optymistyczny update już zmienił status
       expect(service.incidents().find((i) => i.id === 'i-1')?.status).toBe('ACKNOWLEDGED');
 
-      // Serwer zwraca błąd
       httpMock.expectOne(`${API_URL}/i-1/status`).flush(
         {},
         { status: 409, statusText: 'Conflict' }
       );
 
-      // Rollback — status powinien wrócić do OPEN
       expect(service.incidents().find((i) => i.id === 'i-1')?.status).toBe('OPEN');
     });
 
@@ -523,76 +511,66 @@ describe('IncidentService', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // sortIncidents
+
   // ──────────────────────────────────────────────────────────────────────────
+  // getSortParams
+  // ──────────────────────────────────────────────────────────────────────────
+  // Sorting is now server-side. getSortParams() updates the sortState signal
+  // (used by the UI for arrow icons) and returns { sort, direction } params
+  // that the caller merges into IncidentFilter before calling loadIncidents().
+  // Tests verify: correct params returned, sortState updated, toggle logic.
+  // Tests do NOT verify array order — that is the backend responsibility.
 
-  describe('sortIncidents', () => {
-    beforeEach(() => {
-      service.loadIncidents();
-      httpMock.expectOne((r) => r.url === API_URL).flush(
-        buildPage([
-          buildIncident({ id: '1', severity: 'LOW',      title: 'Charlie', status: 'OPEN' }),
-          buildIncident({ id: '2', severity: 'CRITICAL',  title: 'Alice',   status: 'RESOLVED' }),
-          buildIncident({ id: '3', severity: 'HIGH',      title: 'Bob',     status: 'OPEN' }),
-        ])
-      );
+  describe("getSortParams", () => {
+    it("returns asc direction on first call for a column", () => {
+      const params = service.getSortParams("severity");
+
+      expect(params).toEqual({ sort: "severity", direction: "asc" });
     });
 
-    it('sorts by severity ascending (CRITICAL first)', () => {
-      service.sortIncidents('severity');
+    it("returns desc direction on second call for the same column", () => {
+      service.getSortParams("severity");
+      const params = service.getSortParams("severity");
 
-      const ids = service.incidents().map((i) => i.id);
-      expect(ids).toEqual(['2', '3', '1']); // CRITICAL, HIGH, LOW
+      expect(params).toEqual({ sort: "severity", direction: "desc" });
     });
 
-    it('sorts by severity descending on second call (LOW first)', () => {
-      service.sortIncidents('severity');
-      service.sortIncidents('severity');
+    it("returns asc direction when switching to a different column", () => {
+      service.getSortParams("severity");
+      service.getSortParams("severity"); // now desc
+      const params = service.getSortParams("title"); // switching column resets to asc
 
-      const ids = service.incidents().map((i) => i.id);
-      expect(ids).toEqual(['1', '3', '2']); // LOW, HIGH, CRITICAL
+      expect(params).toEqual({ sort: "title", direction: "asc" });
     });
 
-    it('sorts by title ascending alphabetically', () => {
-      service.sortIncidents('title');
+    it("sets sortState signal with correct column and direction", () => {
+      service.getSortParams("severity");
 
-      const titles = service.incidents().map((i) => i.title);
-      expect(titles).toEqual(['Alice', 'Bob', 'Charlie']);
+      expect(service.sortState()).toEqual({ column: "severity", direction: "asc" });
     });
 
-    it('sorts by title descending on second call', () => {
-      service.sortIncidents('title');
-      service.sortIncidents('title');
+    it("toggles sortState direction on second call for the same column", () => {
+      service.getSortParams("title");
+      service.getSortParams("title");
 
-      const titles = service.incidents().map((i) => i.title);
-      expect(titles).toEqual(['Charlie', 'Bob', 'Alice']);
+      expect(service.sortState()).toEqual({ column: "title", direction: "desc" });
     });
 
-    it('sets sortState with correct column and direction', () => {
-      service.sortIncidents('severity');
+    it("resets sortState direction to asc when switching column", () => {
+      service.getSortParams("severity");
+      service.getSortParams("severity");
+      service.getSortParams("title");
 
-      expect(service.sortState()).toEqual({ column: 'severity', direction: 'asc' });
+      expect(service.sortState()).toEqual({ column: "title", direction: "asc" });
     });
 
-    it('toggles sort direction on second call for same column', () => {
-      service.sortIncidents('title');
-      service.sortIncidents('title');
+    it("does not trigger any HTTP request — sorting is server-side", () => {
+      service.getSortParams("severity");
 
-      expect(service.sortState()?.direction).toBe('desc');
-    });
-
-    it('resets direction to asc when switching to a different column', () => {
-      service.sortIncidents('severity');
-      service.sortIncidents('severity'); // desc
-      service.sortIncidents('title');    // powinno reset do asc
-
-      expect(service.sortState()).toEqual({ column: 'title', direction: 'asc' });
+      httpMock.expectNone((r) => r.url === API_URL);
     });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Computed signals
-  // ──────────────────────────────────────────────────────────────────────────
 
   describe('computed signals', () => {
     describe('criticalCount', () => {

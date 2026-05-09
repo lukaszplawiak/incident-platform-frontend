@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, input } from '@angular/core';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
@@ -19,7 +19,7 @@ import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
 })
 export class IncidentDetail implements OnInit {
 
-  @Input() id!: string;
+  readonly id = input.required<string>();
 
   private readonly incidentService = inject(IncidentService);
   private readonly router = inject(Router);
@@ -34,33 +34,29 @@ export class IncidentDetail implements OnInit {
   readonly postmortemLoading = this.incidentService.postmortemLoading;
 
   ngOnInit(): void {
-    if (!this.id) {
-      this.logger.warn('IncidentDetail: no id provided — redirecting');
-      this.router.navigate(['/incidents']);
-      return;
-    }
-    this.logger.info('Loading incident detail', { id: this.id });
-    this.incidentService.loadIncident(this.id);
-    this.incidentService.loadAuditLog(this.id);
-    this.incidentService.loadPostmortem(this.id);
+    const id = this.id();
+    this.logger.info('Loading incident detail', { id });
+    this.incidentService.loadIncident(id);
+    this.incidentService.loadAuditLog(id);
+    this.incidentService.loadPostmortem(id);
   }
 
   onAcknowledge(): void {
     if (!this.incident()) return;
     const request: UpdateStatusRequest = { status: 'ACKNOWLEDGED' };
-    this.incidentService.updateStatus(this.id, request);
+    this.incidentService.updateStatus(this.id(), request);
   }
 
   onResolve(): void {
     if (!this.incident()) return;
     const request: UpdateStatusRequest = { status: 'RESOLVED' };
-    this.incidentService.updateStatus(this.id, request);
+    this.incidentService.updateStatus(this.id(), request);
   }
 
   onClose(): void {
     if (!this.incident()) return;
     const request: UpdateStatusRequest = { status: 'CLOSED' };
-    this.incidentService.updateStatus(this.id, request);
+    this.incidentService.updateStatus(this.id(), request);
   }
 
   onBack(): void {

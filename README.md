@@ -21,9 +21,9 @@ A real-time incident management dashboard that consumes the Incident Platform RE
 
 - **Real-time dashboard** — incident list updated live via STOMP over WebSocket, automatic fallback to polling when WebSocket is offline
 - **Incident lifecycle** — acknowledge and resolve incidents with optimistic UI updates and automatic rollback on error
-- **Filtering and pagination** — filter by severity and status, sort by multiple columns, server-side pagination
+- **Filtering and pagination** — filter by severity and status, server-side sort by severity, title, status or age, server-side pagination
 - **Incident detail** — audit log timeline and AI-generated postmortem draft per incident
-- **Session management** — idle detection with countdown warning, auto-logout, HTTP 401/403 handling
+- **Session management** — dual logout mechanism: token expiry timer + idle detection with countdown warning and extend option
 - **Toast notifications** — feedback for every state change, error, and WebSocket connection event
 
 ---
@@ -38,8 +38,8 @@ src/app/
 │   ├── interceptors/              # authInterceptor, errorInterceptor
 │   ├── models/                    # TypeScript interfaces (domain types)
 │   └── services/
-│       ├── auth.service.ts        # JWT decode, Signals state, auto-logout timer
-│       ├── incident.service.ts    # Signals state management + HTTP
+│       ├── auth.service.ts        # JWT decode, Signals state, token expiry timer
+│       ├── incident.service.ts    # Signals state management + HTTP + server-side sort
 │       ├── websocket.service.ts   # STOMP client, reconnect, event routing
 │       ├── idle.service.ts        # Activity monitoring, idle timeout
 │       └── logger.service.ts     # Leveled console logger (DEBUG/INFO/WARN/ERROR)
@@ -59,8 +59,8 @@ src/app/
 │
 └── shared/
     └── components/
-        ├── severity-badge/        # Signal input + computed CSS class
-        ├── status-badge/          # Signal input + computed CSS class
+        ├── severity-badge/        # input.required<T>() + computed CSS class
+        ├── status-badge/          # input.required<T>() + computed CSS class
         └── toast/                 # Notification overlay service + component
 ```
 
@@ -84,14 +84,48 @@ addIncident(incident: Incident): void {
 }
 ```
 
+### Optimistic Updates
+
+Status changes are applied immediately to the UI. If the server returns an error, the previous state is restored automatically:
+
+```typescript
+updateStatus(id: string, request: UpdateStatusRequest): void {
+  const previousIncidents = this._incidents();      // snapshot
+  this.applyOptimisticUpdate(id, request.status);   // update UI immediately
+
+  this.http.patch(url, request).subscribe({
+    next: updated => { /* apply server response */ },
+    error: () => {
+      this._incidents.set(previousIncidents);        // rollback
+      this.toastService.error('Update failed');
+    }
+  });
+}
+```
+
+### Allowed Transitions
+
+The backend FSM returns `allowedTransitions` on every incident response — the exact set of status transitions permitted from the current state. The frontend uses this field directly instead of re-implementing FSM rules locally:
+
+```typescript
+get canAcknowledge(): boolean {
+  if (this.incident.allowedTransitions) {
+    return this.incident.allowedTransitions.includes('ACKNOWLEDGED');
+  }
+  // Fallback for WebSocket events that may not include allowedTransitions
+  return this.incident.status === 'OPEN' || this.incident.status === 'ESCALATED';
+}
+```
+
+This means backend FSM changes propagate automatically to the UI without any frontend code change.
+
 ### WebSocket Flow
 
 ```
 STOMP connect → subscribe /topic/incidents/{tenantId}
       │
-      ├── IncidentOpenedEvent   → addIncident()
-      ├── IncidentUpdatedEvent  → updateIncident()
-      └── IncidentResolvedEvent → updateIncident()
+      ├── INCIDENT_CREATED   → incidentService.addIncident()
+      └── INCIDENT_UPDATED / INCIDENT_STATUS_CHANGED → incidentService.updateIncident()
 
 Disconnected → exponential backoff reconnect (1s → 2s → 4s → max 30s)
              → fallback to HTTP polling every 30s
@@ -111,14 +145,20 @@ The incident list can contain many rows. With default change detection, every An
 **Why optimistic updates instead of waiting for the server?**
 Acknowledge and resolve are the most frequent user actions. Waiting for the server response before updating the UI makes the dashboard feel slow. Optimistic update applies the change immediately and rolls back silently if the server returns an error — the user sees correct state in both success and failure cases.
 
+**Why server-side sorting instead of client-side?**
+Client-side sorting (Array.sort) operates only on the current page. With server-side pagination this means clicking a sort header sorts 20 rows, not the full dataset. Sort parameters are passed as query params to the backend (`sort=severity&direction=desc`) which applies them across the entire dataset before paginating.
+
+**Why `allowedTransitions` from the backend instead of local FSM rules?**
+The backend defines the FSM. Duplicating transition rules in the frontend creates two sources of truth that can diverge silently — if the backend adds a new transition or removes one, the frontend would show incorrect action buttons. Using `allowedTransitions` from the API response makes the UI automatically correct regardless of FSM changes.
+
+**Why two independent logout timers?**
+`AuthService.autoLogoutTimer` handles absolute token expiry — it fires at `min(tokenExpiry, inactivityTimeout)` and is reset on every authenticated HTTP request. `IdleService.idleTimer` handles inactivity — it fires after a period with no user interaction events and is reset on every mouse/keyboard/touch event. Either can fire first. Both call `authService.logout()` — the second call is a safe no-op because `logout()` clears the token and navigates to `/login`.
+
 **Why STOMP over raw WebSocket?**
 Raw WebSocket is a transport — it has no concept of topics, subscriptions, or acknowledgment. STOMP adds a lightweight pub/sub layer: the frontend subscribes to `/topic/incidents/{tenantId}` and only receives events for its own tenant. The backend Spring WebSocket broker handles routing.
 
 **Why JWT in `sessionStorage` instead of `localStorage` or cookies?**
 `localStorage` persists across tabs and survives browser close — a lost laptop with an open browser means an active session. `sessionStorage` is tab-isolated and cleared on tab close. HttpOnly cookies would be most secure but require backend CORS and cookie configuration changes. `sessionStorage` is a documented tradeoff for a portfolio context.
-
-**Why idle detection in the client instead of short-lived tokens?**
-Short JWT expiry forces frequent re-authentication — bad UX. Idle detection logs out after a configurable inactivity period (default 15 minutes) while keeping the session alive for active users. The countdown warning gives users a chance to extend before logout.
 
 **Why a leveled `LoggerService` instead of `console.log`?**
 Direct `console.log` calls cannot be suppressed without removing them from source. `LoggerService` wraps console methods with a minimum log level — in production the level is set to `WARN`, suppressing all `DEBUG` and `INFO` output without code changes.
@@ -139,6 +179,7 @@ Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test r
 | HTTP | Angular `HttpClient`, functional interceptors | Composable auth and error handling without class decorators |
 | Forms | Angular Reactive Forms | Typed form controls, `valueChanges` stream for filter debounce |
 | Change Detection | `OnPush` on all list components | Prevents unnecessary re-renders in large incident lists |
+| Signal Inputs | `input.required<T>()` on all leaf components | Reactive, type-safe, consistent — no `@Input()` decorator pattern |
 | Testing | Vitest 4 via `@angular/build:unit-test` | Fast Node.js runner, no browser launch, Jest-compatible API |
 | Linting | ESLint + `angular-eslint` + `typescript-eslint` | Angular-specific rules, strict TypeScript enforcement |
 | Container | Docker multi-stage (Node 20 builder + Nginx Alpine) | ~50MB final image, no Node.js in production |
@@ -160,14 +201,20 @@ Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test r
 - **Optimistic update rollback**: failed acknowledge/resolve requests restore the previous incident state automatically
 - **Skeleton loading states**: components show placeholders during data fetch — no layout shift on load
 
-### Security
+### Session Security
 
 - **JWT in `sessionStorage`**: tab-isolated, cleared on tab close — no cross-tab session sharing
 - **`authInterceptor`**: attaches `Authorization: Bearer` only to configured backend origins — token never sent to third-party URLs
-- **Idle detection**: auto-logout after configurable inactivity; countdown warning with extend option
+- **Dual logout mechanism**:
+  - Token expiry timer in `AuthService` — absolute upper bound, reset on every authenticated HTTP request
+  - Idle detection in `IdleService` — fires after configurable inactivity, reset on every user interaction event
 - **HTTP 401**: clears session and redirects to login
 - **HTTP 403**: redirects to `/forbidden` page
+
+### Application Security
+
 - **`GlobalErrorHandler`**: catches all unhandled Angular errors and redirects to `/error` — no raw stack traces exposed to the user
+- **Open redirect protection**: `getSafeRedirectUrl()` in login validates the redirect param starts with `/` and not `//`
 - **Nginx security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Content-Security-Policy`, `server_tokens off`
 - **Asset caching strategy**: static JS/CSS cached 1 year (content-hashed filenames), `index.html` never cached (`no-store`) — stale assets never served after deployment
 
@@ -195,8 +242,8 @@ npm start
 ```
 
 App runs at `http://localhost:4200`. API calls are proxied to the backend services:
-- `http://localhost:8081` — ingestion-service
-- `http://localhost:8082` — incident-service
+- `http://localhost:8081` — ingestion-service (auth token endpoint)
+- `http://localhost:8082` — incident-service (incidents, WebSocket)
 - `http://localhost:8086` — oncall-service
 
 ### Step 3 — Log in
@@ -204,10 +251,16 @@ App runs at `http://localhost:4200`. API calls are proxied to the backend servic
 Generate a dev token from the backend (local profile only):
 
 ```bash
-curl -s "http://localhost:8082/dev/token?userId=11111111-1111-1111-1111-111111111111&tenantId=test-tenant&email=admin@test.com&roles=ROLE_ADMIN" | jq -r .token
+curl -s "http://localhost:8082/dev/token?\
+userId=11111111-1111-1111-1111-111111111111\
+&tenantId=test-tenant\
+&email=admin@test.com\
+&roles=ROLE_ADMIN" | jq -r .token
 ```
 
 Copy the token and paste it into the login form at `http://localhost:4200/login`.
+
+> In local dev the login form pre-fills `userId` and `tenantId` from `environment.devDefaults` for convenience. These values are absent in the production environment — the form starts empty.
 
 ### Step 4 — Build for production
 
@@ -280,16 +333,16 @@ Unit tests cover business logic — not templates, not CSS, not Angular internal
 
 | Test | What it covers |
 |---|---|
-| `auth.service.spec.ts` | JWT decode, Signal state, auto-logout timer |
-| `incident.service.spec.ts` | Signal state management, HTTP params, optimistic update rollback |
-| `websocket.service.spec.ts` | STOMP mock, connection states, event routing, reconnect logic |
+| `auth.service.spec.ts` | JWT decode, Signal state, auto-logout timer, session expiry |
+| `incident.service.spec.ts` | Signal state management, HTTP params, optimistic update rollback, server-side sort params, WebSocket add/update |
+| `websocket.service.spec.ts` | STOMP mock, connection states, event routing, reconnect logic, invalid message handling |
 | `idle.service.spec.ts` | Timer logic, activity detection, countdown |
 | `logger.service.spec.ts` | Log level filtering — DEBUG suppressed in production |
 | `auth.guard.spec.ts` | `UrlTree` redirect vs boolean return |
-| `auth.interceptor.spec.ts` | Bearer token attachment, external URL exclusion |
-| `error.interceptor.spec.ts` | Retry logic, 401/403 side effects, user-friendly messages |
-| `severity-badge.spec.ts` | Signal `computed()` CSS class outputs |
-| `status-badge.spec.ts` | Signal `computed()` CSS class outputs |
+| `auth.interceptor.spec.ts` | Bearer token attachment, external URL exclusion, timer reset on authenticated requests |
+| `error.interceptor.spec.ts` | Retry logic for 503 and network errors, 401/403 side effects, user-friendly messages for all status codes |
+| `severity-badge.spec.ts` | Signal `input.required` + `computed()` CSS class outputs |
+| `status-badge.spec.ts` | Signal `input.required` + `computed()` CSS class outputs |
 
 **Tools**: Vitest 4 · `HttpTestingController` for HTTP · `vi.useFakeTimers()` for timers · `vi.mock()` for STOMP client
 
@@ -304,8 +357,8 @@ incident-platform-frontend/
 ├── src/
 │   ├── app/
 │   │   ├── app.ts                 # Root component
-│   │   ├── app.config.ts          # provideRouter, provideHttpClient, interceptors
-│   │   ├── app.routes.ts          # Lazy-loaded routes: /login, /incidents, /error, /forbidden
+│   │   ├── app.config.ts          # provideRouter, provideHttpClient, interceptors, GlobalErrorHandler
+│   │   ├── app.routes.ts          # Lazy-loaded routes: /login, /incidents, /incidents/:id, /error, /forbidden
 │   │   │
 │   │   ├── core/
 │   │   │   ├── guards/
@@ -313,52 +366,52 @@ incident-platform-frontend/
 │   │   │   ├── handlers/
 │   │   │   │   └── global-error.handler.ts    # Catches unhandled errors → /error
 │   │   │   ├── interceptors/
-│   │   │   │   ├── auth.interceptor.ts        # Attaches Bearer token to backend requests
+│   │   │   │   ├── auth.interceptor.ts        # Attaches Bearer token to backend requests only
 │   │   │   │   └── error.interceptor.ts       # Retry, 401/403 redirect, user-friendly messages
 │   │   │   ├── models/
-│   │   │   │   ├── incident.model.ts          # Incident, IncidentStatus, Severity
-│   │   │   │   ├── audit-event.model.ts       # AuditEvent
+│   │   │   │   ├── incident.model.ts          # Incident (with allowedTransitions), IncidentFilter (with sort params)
+│   │   │   │   ├── audit-event.model.ts       # AuditEvent, AuditEventType
 │   │   │   │   ├── postmortem.model.ts        # Postmortem, PostmortemStatus
-│   │   │   │   └── auth.model.ts              # TokenPayload, LoginResponse
+│   │   │   │   └── auth.model.ts              # AuthResponse, JwtPayload
 │   │   │   └── services/
-│   │   │       ├── auth.service.ts            # JWT parse, isAuthenticated signal, logout
-│   │   │       ├── incident.service.ts        # incidents signal, HTTP CRUD, optimistic update
-│   │   │       ├── websocket.service.ts       # STOMP connect/reconnect, tenant subscription
+│   │   │       ├── auth.service.ts            # JWT parse, isAuthenticated signal, dual logout timer
+│   │   │       ├── incident.service.ts        # incidents signal, HTTP CRUD, optimistic update, server-side sort
+│   │   │       ├── websocket.service.ts       # STOMP connect/reconnect, tenant subscription, backoff
 │   │   │       ├── idle.service.ts            # Inactivity timer, session extension
 │   │   │       └── logger.service.ts          # Leveled logger — WARN level in production
 │   │   │
 │   │   ├── features/
 │   │   │   ├── auth/login/
-│   │   │   │   └── login.ts                   # Token input form, login action
+│   │   │   │   └── login.ts                   # Token input form, dev defaults from environment
 │   │   │   ├── errors/
 │   │   │   │   ├── error/error.ts             # Generic error page
 │   │   │   │   └── forbidden/forbidden.ts     # HTTP 403 page
 │   │   │   └── incidents/
-│   │   │       ├── dashboard/dashboard.ts     # Orchestrator: loads incidents, manages WS
-│   │   │       ├── incident-detail/           # Detail view with audit + postmortem tabs
+│   │   │       ├── dashboard/dashboard.ts     # Orchestrator: filter + sort + page state, WS lifecycle
+│   │   │       ├── incident-detail/           # Detail view with audit + postmortem, signal input id
 │   │   │       ├── incident-list/             # Table, sort headers, OnPush
-│   │   │       ├── incident-filter/           # Reactive form filter, debounced valueChanges
-│   │   │       ├── incident-pagination/       # Page size + page number controls
-│   │   │       ├── incident-row/              # Single row, OnPush, action buttons
+│   │   │       ├── incident-filter/           # Reactive form filter, debounced valueChanges, OnPush
+│   │   │       ├── incident-pagination/       # Page size + page number controls, OnPush
+│   │   │       ├── incident-row/              # Single row, OnPush, allowedTransitions-based action buttons
 │   │   │       ├── incident-audit/            # Chronological audit event list
 │   │   │       └── incident-postmortem/       # Postmortem draft display
 │   │   │
 │   │   └── shared/
 │   │       └── components/
-│   │           ├── severity-badge/            # CRITICAL/HIGH/MEDIUM/LOW with color
-│   │           ├── status-badge/              # OPEN/ACKNOWLEDGED/RESOLVED/CLOSED with color
+│   │           ├── severity-badge/            # CRITICAL/HIGH/MEDIUM/LOW — input.required + computed
+│   │           ├── status-badge/              # OPEN/ACKNOWLEDGED/RESOLVED/CLOSED — input.required + computed
 │   │           └── toast/                     # Toast service + overlay component
 │   │
 │   ├── environments/
-│   │   ├── environment.ts         # Development: API URLs, log level DEBUG
-│   │   └── environment.prod.ts    # Production: API URLs, log level WARN
+│   │   ├── environment.ts         # Development: API URLs, log level DEBUG, devDefaults for login form
+│   │   └── environment.prod.ts    # Production: API URLs, log level WARN — no devDefaults
 │   └── styles.scss                # Global styles
 │
 ├── Dockerfile                     # Multi-stage: Node 20 builder + Nginx Alpine runtime (~50MB)
 ├── nginx.conf                     # SPA routing, gzip, asset caching strategy
 ├── security-headers.conf          # X-Frame-Options, CSP, Referrer-Policy, X-Content-Type-Options
 ├── angular.json                   # Build, test (Vitest), lint configuration
-├── tsconfig.json                  # TypeScript strict mode
+├── tsconfig.json                  # TypeScript strict mode + Angular compiler options
 └── eslint.config.js               # ESLint + angular-eslint + typescript-eslint rules
 ```
 

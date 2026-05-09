@@ -6,7 +6,7 @@ import { IncidentService } from '../../../core/services/incident.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
-import { UpdateStatusRequest, IncidentStatus } from '../../../core/models/incident.model';
+import { UpdateStatusRequest } from '../../../core/models/incident.model';
 import { IncidentAudit } from '../incident-audit/incident-audit';
 import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
 
@@ -68,19 +68,32 @@ export class IncidentDetail implements OnInit {
   }
 
   get canAcknowledge(): boolean {
-    const status = this.incident()?.status;
-    return status === 'OPEN' || status === 'ESCALATED';
+    const inc = this.incident();
+    if (!inc) return false;
+    if (inc.allowedTransitions) {
+      return inc.allowedTransitions.includes('ACKNOWLEDGED');
+    }
+    return inc.status === 'OPEN' || inc.status === 'ESCALATED';
   }
 
   get canResolve(): boolean {
-    const status = this.incident()?.status;
-    return status === 'OPEN' ||
-           status === 'ACKNOWLEDGED' ||
-           status === 'ESCALATED';
+    const inc = this.incident();
+    if (!inc) return false;
+    if (inc.allowedTransitions) {
+      return inc.allowedTransitions.includes('RESOLVED');
+    }
+    return inc.status === 'OPEN' ||
+           inc.status === 'ACKNOWLEDGED' ||
+           inc.status === 'ESCALATED';
   }
 
   get canClose(): boolean {
-    return this.incident()?.status === 'RESOLVED';
+    const inc = this.incident();
+    if (!inc) return false;
+    if (inc.allowedTransitions) {
+      return inc.allowedTransitions.includes('CLOSED');
+    }
+    return inc.status === 'RESOLVED';
   }
 
   get duration(): string {
@@ -96,10 +109,5 @@ export class IncidentDetail implements OnInit {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-
-  isValidStatus(value: string): value is IncidentStatus {
-    return ['OPEN', 'ACKNOWLEDGED', 'ESCALATED', 'RESOLVED', 'CLOSED']
-      .includes(value);
   }
 }

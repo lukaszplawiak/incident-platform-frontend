@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { Incident } from '../../../core/models/incident.model';
+import { Incident, IncidentStatus } from '../../../core/models/incident.model';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 
@@ -38,14 +38,26 @@ export class IncidentRow {
   }
 
   get canAcknowledge(): boolean {
-    return this.incident.status === 'OPEN' ||
-           this.incident.status === 'ESCALATED';
+    if (this.incident.allowedTransitions) {
+      return this.incident.allowedTransitions.includes('ACKNOWLEDGED');
+    }
+    return this.incident.status === 'OPEN' || this.incident.status === 'ESCALATED';
   }
 
   get canResolve(): boolean {
+    if (this.incident.allowedTransitions) {
+      return this.incident.allowedTransitions.includes('RESOLVED');
+    }
     return this.incident.status === 'OPEN' ||
            this.incident.status === 'ACKNOWLEDGED' ||
            this.incident.status === 'ESCALATED';
+  }
+
+  canTransitionTo(status: IncidentStatus): boolean {
+    if (this.incident.allowedTransitions) {
+      return this.incident.allowedTransitions.includes(status);
+    }
+    return false;
   }
 
   onAcknowledge(): void {

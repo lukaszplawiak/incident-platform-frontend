@@ -30,6 +30,7 @@ export interface Incident {
   mttrSeconds: number | null;
   assignedTo: string | null;
   version: number;
+  allowedTransitions?: IncidentStatus[];
 }
 
 export interface UpdateStatusRequest {

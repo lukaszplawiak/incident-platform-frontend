@@ -6,4 +6,5 @@ export const environment = {
   wsUrl: 'wss://api.incident-platform.com/ws',
   tokenKey: 'incident_platform_token',
   autoLogoutMinutes: 30
+  // devDefaults intentionally absent — login form starts empty in production
 };

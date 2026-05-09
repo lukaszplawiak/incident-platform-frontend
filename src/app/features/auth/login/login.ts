@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { AuthService } from '../../../core/services/auth.service';
 import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -23,13 +24,17 @@ export class Login {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
+  private readonly defaults = (environment as typeof environment & {
+    devDefaults?: { userId: string; tenantId: string };
+  }).devDefaults;
+
   readonly loginForm: FormGroup = this.fb.group({
-    userId: ['user-1', [
+    userId: [this.defaults?.userId ?? '', [
       Validators.required,
       Validators.minLength(1),
       Validators.maxLength(50)
     ]],
-    tenantId: ['acme-corp', [
+    tenantId: [this.defaults?.tenantId ?? '', [
       Validators.required,
       Validators.minLength(1),
       Validators.maxLength(50)

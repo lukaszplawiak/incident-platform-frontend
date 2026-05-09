@@ -38,6 +38,7 @@ export class IdleService implements OnDestroy {
 
     this.resetTimer();
   }
+
   stopWatching(): void {
     this.clearTimer();
 
@@ -56,6 +57,21 @@ export class IdleService implements OnDestroy {
   private resetTimer(): void {
     this.clearTimer();
 
+    // ─── Dual logout timer design ─────────────────────────────────────────────
+    //
+    // This timer is the second of two independent logout mechanisms.
+    // See AuthService for the full explanation of why both exist.
+    //
+    // In short:
+    // - AuthService.autoLogoutTimer handles absolute expiry (JWT-bound upper limit),
+    //   reset on every authenticated HTTP request.
+    // - This timer handles inactivity (user-behaviour-bound limit),
+    //   reset on every user interaction event.
+    //
+    // Calling authService.logout() here when the other timer already fired is
+    // safe — logout() clears the token and navigates to /login, making any
+    // subsequent call a no-op.
+    // ─────────────────────────────────────────────────────────────────────────
     this.idleTimer = setTimeout(() => {
       if (this.authService.isAuthenticated()) {
         this.logger.warn('IdleService: user idle timeout — logging out', {

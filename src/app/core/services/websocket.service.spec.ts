@@ -401,6 +401,52 @@ describe('WebSocketService', () => {
     });
   });
 
+  describe('WebSocket event handling — INCIDENT_UPDATED', () => {
+    let messageHandler: ((msg: IMessage) => void) | undefined;
+
+    beforeEach(() => {
+      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+        messageHandler = handler;
+        return { unsubscribe: vi.fn() };
+      });
+      service.connect();
+      capturedOnConnect?.();
+    });
+
+    it('calls incidentService.updateIncident for INCIDENT_UPDATED event', () => {
+      // INCIDENT_UPDATED is sent when a duplicate alert escalates an existing
+      // incident's severity without changing its status — e.g.
+      // IncidentWebSocketPublisher.publishUpdate() on the backend.
+      const incident = buildIncident({ severity: 'CRITICAL' });
+      const event: IncidentWebSocketEvent = { eventType: 'INCIDENT_UPDATED', incident };
+
+      messageHandler?.(buildStompMessage(event));
+
+      expect(mockIncidentService.updateIncident).toHaveBeenCalledWith(incident);
+    });
+
+    it('does not show a toast for INCIDENT_UPDATED event', () => {
+      // Deliberate UX difference from INCIDENT_CREATED/STATUS_CHANGED — a
+      // silent data refresh doesn't need operator attention the way a new
+      // incident or a status transition does.
+      const incident = buildIncident({ title: 'High CPU', severity: 'CRITICAL' });
+      const event: IncidentWebSocketEvent = { eventType: 'INCIDENT_UPDATED', incident };
+
+      messageHandler?.(buildStompMessage(event));
+
+      expect(mockToast.info).not.toHaveBeenCalled();
+    });
+
+    it('does not call addIncident for INCIDENT_UPDATED event', () => {
+      const incident = buildIncident();
+      const event: IncidentWebSocketEvent = { eventType: 'INCIDENT_UPDATED', incident };
+
+      messageHandler?.(buildStompMessage(event));
+
+      expect(mockIncidentService.addIncident).not.toHaveBeenCalled();
+    });
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // handleIncidentEvent — invalid messages
   // ──────────────────────────────────────────────────────────────────────────

@@ -171,6 +171,13 @@ export class WebSocketService {
             `Status changed: ${event.incident.title} → ${event.incident.status}`
           );
           break;
+        case 'INCIDENT_UPDATED':
+          // Data refresh with no status transition — e.g. a duplicate alert
+          // escalated this incident's severity. No toast: this isn't an
+          // event that needs operator attention the way a new incident or
+          // a status change does, just a silent UI refresh.
+          this.incidentService.updateIncident(event.incident);
+          break;
         default:
           this.logger.debug('WebSocket unknown event type', {
             eventType: event.eventType

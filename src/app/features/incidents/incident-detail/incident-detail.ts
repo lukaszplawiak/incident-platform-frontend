@@ -6,6 +6,7 @@ import { IncidentService } from '../../../core/services/incident.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
+import { EscalationBadge } from '../../../shared/components/escalation-badge/escalation-badge';
 import { UpdateStatusRequest } from '../../../core/models/incident.model';
 import { IncidentAudit } from '../incident-audit/incident-audit';
 import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
@@ -13,7 +14,7 @@ import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
 @Component({
   selector: 'app-incident-detail',
   standalone: true,
-  imports: [DatePipe, SeverityBadge, StatusBadge, IncidentAudit, IncidentPostmortem],
+  imports: [DatePipe, SeverityBadge, StatusBadge, EscalationBadge, IncidentAudit, IncidentPostmortem],
   templateUrl: './incident-detail.html',
   styleUrl: './incident-detail.scss'
 })
@@ -69,7 +70,10 @@ export class IncidentDetail implements OnInit {
     if (inc.allowedTransitions) {
       return inc.allowedTransitions.includes('ACKNOWLEDGED');
     }
-    return inc.status === 'OPEN' || inc.status === 'ESCALATED';
+    // Fallback only applies when the backend didn't send allowedTransitions.
+    // escalationLevel no longer affects this — an escalated incident can be
+    // ACKNOWLEDGED regardless of its level.
+    return inc.status === 'OPEN';
   }
 
   get canResolve(): boolean {
@@ -78,9 +82,7 @@ export class IncidentDetail implements OnInit {
     if (inc.allowedTransitions) {
       return inc.allowedTransitions.includes('RESOLVED');
     }
-    return inc.status === 'OPEN' ||
-           inc.status === 'ACKNOWLEDGED' ||
-           inc.status === 'ESCALATED';
+    return inc.status === 'ACKNOWLEDGED';
   }
 
   get canClose(): boolean {

@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { Incident, IncidentStatus } from '../../../core/models/incident.model';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
+import { EscalationBadge } from '../../../shared/components/escalation-badge/escalation-badge';
 
 @Component({
   selector: 'app-incident-row',
   standalone: true,
-  imports: [CommonModule, RouterModule, SeverityBadge, StatusBadge],
+  imports: [CommonModule, RouterModule, SeverityBadge, StatusBadge, EscalationBadge],
   templateUrl: './incident-row.html',
   styleUrl: './incident-row.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -41,16 +42,17 @@ export class IncidentRow {
     if (this.incident.allowedTransitions) {
       return this.incident.allowedTransitions.includes('ACKNOWLEDGED');
     }
-    return this.incident.status === 'OPEN' || this.incident.status === 'ESCALATED';
+    // Fallback only applies when the backend didn't send allowedTransitions
+    // (e.g. older API response). escalationLevel no longer affects this —
+    // an escalated incident can be ACKNOWLEDGED regardless of its level.
+    return this.incident.status === 'OPEN';
   }
 
   get canResolve(): boolean {
     if (this.incident.allowedTransitions) {
       return this.incident.allowedTransitions.includes('RESOLVED');
     }
-    return this.incident.status === 'OPEN' ||
-           this.incident.status === 'ACKNOWLEDGED' ||
-           this.incident.status === 'ESCALATED';
+    return this.incident.status === 'ACKNOWLEDGED';
   }
 
   canTransitionTo(status: IncidentStatus): boolean {

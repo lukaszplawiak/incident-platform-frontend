@@ -16,7 +16,6 @@ export class StatusBadge {
     const labels: Record<IncidentStatus, string> = {
       'OPEN':         'Open',
       'ACKNOWLEDGED': 'Acknowledged',
-      'ESCALATED':    'Escalated',
       'RESOLVED':     'Resolved',
       'CLOSED':       'Closed'
     };

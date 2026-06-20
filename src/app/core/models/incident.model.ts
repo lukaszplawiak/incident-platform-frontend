@@ -1,7 +1,6 @@
 export type IncidentStatus =
   | 'OPEN'
   | 'ACKNOWLEDGED'
-  | 'ESCALATED'
   | 'RESOLVED'
   | 'CLOSED';
 
@@ -29,6 +28,18 @@ export interface Incident {
   mttaSeconds: number | null;
   mttrSeconds: number | null;
   assignedTo: string | null;
+  /**
+   * How urgently this incident needs attention — independent of `status`.
+   * 0 = not escalated, 1 = escalated to secondary on-call, 2 = escalated
+   * to manager. Backed by `Incident.escalationLevel` in incident-service,
+   * kept in sync with escalation-service's automatic timeout-driven
+   * escalations via IncidentEscalationEventConsumer.
+   *
+   * Previously this was the 'ESCALATED' value of IncidentStatus — removed
+   * because it duplicated state already owned by escalation-service and was
+   * never reliably synchronized for automatic escalations.
+   */
+  escalationLevel: number;
   version: number;
   allowedTransitions?: IncidentStatus[];
 }

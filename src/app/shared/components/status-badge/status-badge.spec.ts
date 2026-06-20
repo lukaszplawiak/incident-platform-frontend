@@ -41,7 +41,6 @@ describe('StatusBadge', () => {
     const cases: { status: IncidentStatus; expectedLabel: string }[] = [
       { status: 'OPEN',         expectedLabel: 'Open' },
       { status: 'ACKNOWLEDGED', expectedLabel: 'Acknowledged' },
-      { status: 'ESCALATED',    expectedLabel: 'Escalated' },
       { status: 'RESOLVED',     expectedLabel: 'Resolved' },
       { status: 'CLOSED',       expectedLabel: 'Closed' },
     ];
@@ -54,9 +53,9 @@ describe('StatusBadge', () => {
       });
     });
 
-    it('covers all five IncidentStatus values', () => {
+    it('covers all four IncidentStatus values', () => {
       const allStatuses: IncidentStatus[] = [
-        'OPEN', 'ACKNOWLEDGED', 'ESCALATED', 'RESOLVED', 'CLOSED',
+        'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'CLOSED',
       ];
 
       allStatuses.forEach((status) => {
@@ -81,7 +80,6 @@ describe('StatusBadge', () => {
     const cases: { status: IncidentStatus; expectedClass: string }[] = [
       { status: 'OPEN',         expectedClass: 'status-badge status-badge--open' },
       { status: 'ACKNOWLEDGED', expectedClass: 'status-badge status-badge--acknowledged' },
-      { status: 'ESCALATED',    expectedClass: 'status-badge status-badge--escalated' },
       { status: 'RESOLVED',     expectedClass: 'status-badge status-badge--resolved' },
       { status: 'CLOSED',       expectedClass: 'status-badge status-badge--closed' },
     ];
@@ -96,7 +94,7 @@ describe('StatusBadge', () => {
 
     it('always includes the base "status-badge" class', () => {
       const allStatuses: IncidentStatus[] = [
-        'OPEN', 'ACKNOWLEDGED', 'ESCALATED', 'RESOLVED', 'CLOSED',
+        'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'CLOSED',
       ];
 
       allStatuses.forEach((status) => {

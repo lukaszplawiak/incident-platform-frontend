@@ -13,6 +13,7 @@
 
   <td class="incident-row__cell">
     <app-status-badge [status]="incident.status" />
+    <app-escalation-badge [level]="incident.escalationLevel" />
   </td>
 
   <td class="incident-row__cell incident-row__cell--age">

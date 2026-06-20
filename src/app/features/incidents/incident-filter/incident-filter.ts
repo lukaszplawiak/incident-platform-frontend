@@ -29,7 +29,6 @@ export class IncidentFilter {
     { value: '', label: 'All Statuses' },
     { value: 'OPEN', label: 'Open' },
     { value: 'ACKNOWLEDGED', label: 'Acknowledged' },
-    { value: 'ESCALATED', label: 'Escalated' },
     { value: 'RESOLVED', label: 'Resolved' },
     { value: 'CLOSED', label: 'Closed' }
   ];

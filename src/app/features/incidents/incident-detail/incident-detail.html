@@ -24,6 +24,7 @@
         <div class="incident-detail__badges">
           <app-severity-badge [severity]="inc.severity" />
           <app-status-badge [status]="inc.status" />
+          <app-escalation-badge [level]="inc.escalationLevel" />
         </div>
         <h1 class="incident-detail__title">{{ inc.title }}</h1>
         <p class="incident-detail__description">{{ inc.description }}</p>

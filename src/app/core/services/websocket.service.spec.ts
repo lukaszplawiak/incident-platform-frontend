@@ -72,6 +72,7 @@ function buildIncident(overrides: Partial<Incident> = {}): Incident {
     mttaSeconds: null,
     mttrSeconds: null,
     assignedTo: null,
+    escalationLevel: 0,
     version: 1,
     ...overrides,
   };

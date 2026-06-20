@@ -31,9 +31,7 @@ export interface Incident {
   /**
    * How urgently this incident needs attention — independent of `status`.
    * 0 = not escalated, 1 = escalated to secondary on-call, 2 = escalated
-   * to manager. Backed by `Incident.escalationLevel` in incident-service,
-   * kept in sync with escalation-service's automatic timeout-driven
-   * escalations via IncidentEscalationEventConsumer.
+   * to manager. Backed by `Incident.escalationLevel` in incident-service.
    *
    * Previously this was the 'ESCALATED' value of IncidentStatus — removed
    * because it duplicated state already owned by escalation-service and was
@@ -69,7 +67,10 @@ export interface PageResponse<T> {
 }
 
 export interface IncidentWebSocketEvent {
-  eventType: 'CREATED' | 'UPDATED' | 'STATUS_CHANGED' | 'INCIDENT_CREATED' | 'INCIDENT_STATUS_CHANGED';
+  eventType:
+    | 'CREATED' | 'INCIDENT_CREATED'
+    | 'UPDATED' | 'STATUS_CHANGED' | 'INCIDENT_STATUS_CHANGED'
+    | 'INCIDENT_UPDATED';
   incident: Incident;
   previousStatus?: IncidentStatus;
 }

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -44,6 +45,17 @@ export const routes: Routes = [
       import('./features/incidents/incident-detail/incident-detail')
         .then(m => m.IncidentDetail),
     title: 'Incident Detail — Incident Platform'
+  },
+
+  // ── Admin routes (ROLE_ADMIN required) ────────────────────────────────────
+
+  {
+    path: 'admin/users',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./features/admin/users/users')
+        .then(m => m.Users),
+    title: 'Users — Incident Platform'
   },
 
   // ── Error routes ───────────────────────────────────────────────────────────

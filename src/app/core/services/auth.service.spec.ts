@@ -427,7 +427,6 @@ describe('AuthService', () => {
     it('calls logout when refresh fails', () => {
       const spy = vi.spyOn(router, 'navigate');
 
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
       service.refresh().subscribe({ error: () => { /* expected — refresh token expired, logout triggered */ } });
       httpMock.expectOne(REFRESH_URL).flush(
         { message: 'Refresh token expired' },

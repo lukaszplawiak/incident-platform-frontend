@@ -43,7 +43,7 @@
               </div>
             </div>
 
-            <div class="team-card__actions" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+            <div class="team-card__actions" role="group" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
               @if (confirmingArchive() === team.id) {
                 <span class="confirm-text">Archive?</span>
                 <button class="action-btn action-btn--danger" (click)="archiveTeam(team)">Yes</button>

@@ -4,7 +4,8 @@ export const environment = {
   authApiUrl: 'https://api.incident-platform.com',
   oncallApiUrl: 'https://api.incident-platform.com',
   wsUrl: 'wss://api.incident-platform.com/ws',
-  tokenKey: 'incident_platform_token',
+  tokenKey: 'incident_platform_access_token',
+  refreshTokenKey: 'incident_platform_refresh_token',
   autoLogoutMinutes: 30
   // devDefaults intentionally absent — login form starts empty in production
 };

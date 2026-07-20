@@ -1,0 +1,62 @@
+<div class="login-container">
+  <div class="login-card">
+
+    <div class="login-header">
+      <h1 class="login-title">🔐 Two-Factor Authentication</h1>
+      <p class="login-subtitle">
+        Enter the 6-digit code from your authenticator app
+      </p>
+    </div>
+
+    @if (error()) {
+      <div class="login-error" role="alert">
+        {{ error() }}
+      </div>
+    }
+
+    <form [formGroup]="mfaForm" (ngSubmit)="onSubmit()" novalidate>
+
+      <div class="form-group">
+        <label class="form-label" for="totpCode">Authentication code</label>
+        <input
+          id="totpCode"
+          type="text"
+          inputmode="numeric"
+          class="form-input mfa-input"
+          [class.form-input--error]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern')"
+          formControlName="totpCode"
+          placeholder="000000"
+          autocomplete="one-time-code"
+          maxlength="6"
+          [attr.aria-describedby]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern') ? 'totp-error' : null">
+
+        @if (hasError('totpCode', 'required')) {
+          <span id="totp-error" class="form-error" role="alert">
+            Authentication code is required
+          </span>
+        } @else if (hasError('totpCode', 'pattern')) {
+          <span id="totp-error" class="form-error" role="alert">
+            Code must be exactly 6 digits
+          </span>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="login-button"
+        [disabled]="loading()">
+        @if (loading()) {
+          <span>Verifying...</span>
+        } @else {
+          <span>Verify</span>
+        }
+      </button>
+
+    </form>
+
+    <p class="login-links">
+      <a [routerLink]="['/login']" class="login-link">← Back to login</a>
+    </p>
+
+  </div>
+</div>

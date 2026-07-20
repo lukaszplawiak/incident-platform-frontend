@@ -1,10 +1,17 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { Observable, tap, interval, map, filter } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, tap, interval, map, filter, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthResponse, JwtPayload } from '../models/auth.model';
+import {
+  LoginRequest,
+  LoginResponse,
+  RefreshRequest,
+  RefreshResponse,
+  MfaVerifyRequest,
+  JwtPayload,
+} from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -16,12 +23,14 @@ export class AuthService {
 
   private readonly WARNING_THRESHOLD_MS = 5 * 60 * 1000;
 
-  private readonly tokenSignal = signal<string | null>(
+  private readonly accessTokenSignal = signal<string | null>(
     sessionStorage.getItem(environment.tokenKey)
   );
 
+  // ── Public state ────────────────────────────────────────────────────────────
+
   readonly isAuthenticated = computed(() => {
-    const token = this.tokenSignal();
+    const token = this.accessTokenSignal();
     if (!token) return false;
     const payload = this.decodeToken(token);
     if (!payload) return false;
@@ -30,24 +39,27 @@ export class AuthService {
   });
 
   readonly currentUser = computed(() => {
-    const token = this.tokenSignal();
+    const token = this.accessTokenSignal();
     if (!token) return null;
     return this.decodeToken(token);
   });
 
   readonly tenantId = computed(() => this.currentUser()?.tenantId ?? null);
   readonly userId = computed(() => this.currentUser()?.sub ?? null);
+  readonly roles = computed(() => this.currentUser()?.roles ?? []);
+  readonly teamIds = computed(() => this.currentUser()?.teamIds ?? []);
 
-  // interval(1000) runs for the entire lifetime of the app because AuthService
-  // is providedIn: 'root' and is never destroyed.
-  // The filter() operator short-circuits each tick when no token is present —
-  // no decoding, no arithmetic, no signal reads beyond the token check itself.
-  // This avoids unnecessary work while the user is logged out or before login.
+  readonly isAdmin = computed(() =>
+    this.roles().includes('ROLE_ADMIN')
+  );
+
+  // ── Session countdown (same pattern as before — toSignal from interval) ─────
+
   readonly sessionRemainingMs = toSignal(
     interval(1000).pipe(
-      filter(() => this.tokenSignal() !== null),
+      filter(() => this.accessTokenSignal() !== null),
       map(() => {
-        const token = this.tokenSignal();
+        const token = this.accessTokenSignal();
         if (!token) return null;
         const payload = this.decodeToken(token);
         if (!payload) return null;
@@ -65,54 +77,120 @@ export class AuthService {
     return remaining <= this.WARNING_THRESHOLD_MS;
   });
 
-  // ─── Dual logout timer design ───────────────────────────────────────────────
+  // ── Auto-logout timer (same dual-timer design as before) ────────────────────
   //
-  // The application uses two independent timers that can both trigger logout:
+  // autoLogoutTimer — fires when Math.min(tokenExpiry, inactivityTimeout) is
+  // reached. Reset on every authenticated HTTP request via resetAutoLogoutTimer().
   //
-  // 1. autoLogoutTimer (this service) — fires when Math.min(tokenExpiry, inactivityTimeout)
-  //    is reached. It is set once on login and reset by resetAutoLogoutTimer() on every
-  //    authenticated HTTP request (via authInterceptor). This ensures the session ends
-  //    no later than the JWT expiry, regardless of user activity.
-  //
-  // 2. IdleService timer — fires after a period of zero user interaction
-  //    (no mouse, keyboard, click, scroll or touch events). It is reset on every
-  //    user activity event. This covers the case where the user walks away from
-  //    the machine without making any HTTP requests.
-  //
-  // Why two timers instead of one:
-  // - autoLogoutTimer handles absolute expiry (token-bound upper limit).
-  // - IdleService handles inactivity (user-behaviour-bound limit).
-  // - Either can fire first depending on which threshold is reached sooner.
-  // - Both call authService.logout() — the second call is a no-op because
-  //   logout() clears the token and navigates to /login, making isAuthenticated()
-  //   return false on subsequent calls.
-  //
-  // This is intentional, not a bug.
-  // ───────────────────────────────────────────────────────────────────────────
+  // IdleService — fires after zero user interaction (mouse/keyboard/scroll).
+  // Both call logout() — second call is a no-op (token already cleared).
+  // ────────────────────────────────────────────────────────────────────────────
   private autoLogoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    if (this.tokenSignal()) {
+    if (this.accessTokenSignal()) {
       this.scheduleAutoLogout();
     }
   }
 
-  login(userId: string, tenantId: string): Observable<AuthResponse> {
-    const url = `${environment.authApiUrl}/dev/token`;
-    return this.http.get<AuthResponse>(url, {
-      params: { userId, tenantId }
-    }).pipe(
-      tap(response => this.storeToken(response.token))
+  // ── Auth API calls ──────────────────────────────────────────────────────────
+
+  /**
+   * POST /api/v1/auth/login
+   *
+   * Sends email + password in the body.
+   * tenantId is passed as X-Tenant-Id header — auth-service reads it there
+   * because the login endpoint is public (JwtAuthFilter skips it, so
+   * TenantContext is never populated from a JWT on this endpoint).
+   *
+   * Two outcomes:
+   * - mfaRequired=false → stores access+refresh tokens, ready to use
+   * - mfaRequired=true  → returns response for caller to show MFA screen
+   */
+  login(request: LoginRequest, tenantId: string): Observable<LoginResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/login`;
+    const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+
+    return this.http.post<LoginResponse>(url, request, { headers }).pipe(
+      tap(response => {
+        if (!response.mfaRequired && response.accessToken && response.refreshToken) {
+          this.storeTokens(response.accessToken, response.refreshToken);
+        }
+        // If MFA is required — do NOT store tokens yet.
+        // Caller (Login component) navigates to MFA verify screen,
+        // which will call verifyMfa() and then store tokens.
+      })
     );
   }
 
+  /**
+   * POST /api/v1/auth/mfa/verify
+   *
+   * Called after login when mfaRequired=true.
+   * On success, stores access+refresh tokens.
+   */
+  verifyMfa(request: MfaVerifyRequest, tenantId: string): Observable<LoginResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/verify`;
+    const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+
+    return this.http.post<LoginResponse>(url, request, { headers }).pipe(
+      tap(response => {
+        if (response.accessToken && response.refreshToken) {
+          this.storeTokens(response.accessToken, response.refreshToken);
+        }
+      })
+    );
+  }
+
+  /**
+   * POST /api/v1/auth/refresh
+   *
+   * Called automatically by auth interceptor when a 401 is received.
+   * Returns new access+refresh tokens. Called without Authorization header
+   * (the refresh token itself is the credential).
+   *
+   * Note: interceptor calls this — do not call manually from components.
+   */
+  refresh(): Observable<RefreshResponse> {
+    const refreshToken = sessionStorage.getItem(environment.refreshTokenKey);
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token available'));
+    }
+
+    const url = `${environment.authApiUrl}/api/v1/auth/refresh`;
+    const body: RefreshRequest = { refreshToken };
+
+    return this.http.post<RefreshResponse>(url, body).pipe(
+      tap(response => {
+        this.storeTokens(response.accessToken, response.refreshToken);
+      }),
+      catchError(err => {
+        // Refresh failed (token expired or revoked) — force logout
+        this.logout();
+        return throwError(() => err);
+      })
+    );
+  }
+
+  /**
+   * POST /api/v1/auth/logout
+   *
+   * Revokes the access token on the server, then clears local state.
+   */
   logout(): void {
-    this.clearToken();
+    const token = this.accessTokenSignal();
+    if (token) {
+      // Fire-and-forget — revoke on server. No need to wait for response.
+      this.http.post(`${environment.authApiUrl}/api/v1/auth/logout`, {}).subscribe({
+        error: () => { /* silent — local logout proceeds regardless */ }
+      });
+    }
+    this.clearTokens();
     this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return this.tokenSignal();
+    return this.accessTokenSignal();
   }
 
   resetAutoLogoutTimer(): void {
@@ -121,21 +199,25 @@ export class AuthService {
     }
   }
 
-  private storeToken(token: string): void {
-    sessionStorage.setItem(environment.tokenKey, token);
-    this.tokenSignal.set(token);
+  // ── Private helpers ─────────────────────────────────────────────────────────
+
+  private storeTokens(accessToken: string, refreshToken: string): void {
+    sessionStorage.setItem(environment.tokenKey, accessToken);
+    sessionStorage.setItem(environment.refreshTokenKey, refreshToken);
+    this.accessTokenSignal.set(accessToken);
     this.scheduleAutoLogout();
   }
 
-  private clearToken(): void {
+  private clearTokens(): void {
     sessionStorage.removeItem(environment.tokenKey);
-    this.tokenSignal.set(null);
+    sessionStorage.removeItem(environment.refreshTokenKey);
+    this.accessTokenSignal.set(null);
     this.cancelAutoLogout();
   }
 
   private scheduleAutoLogout(): void {
     this.cancelAutoLogout();
-    const token = this.tokenSignal();
+    const token = this.accessTokenSignal();
     if (!token) return;
     const payload = this.decodeToken(token);
     if (!payload) return;

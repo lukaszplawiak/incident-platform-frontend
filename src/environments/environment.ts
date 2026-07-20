@@ -1,13 +1,13 @@
 export const environment = {
   production: false,
+  /** incident-service — incidents, audit, WebSocket */
   apiUrl: 'http://localhost:8082',
-  authApiUrl: 'http://localhost:8081',
+  /** auth-service — login, refresh, users, teams, API keys */
+  authApiUrl: 'http://localhost:8087',
+  /** oncall-service — on-call schedules */
   oncallApiUrl: 'http://localhost:8086',
   wsUrl: 'ws://localhost:8082/ws',
-  tokenKey: 'incident_platform_token',
+  tokenKey: 'incident_platform_access_token',
+  refreshTokenKey: 'incident_platform_refresh_token',
   autoLogoutMinutes: 30,
-  devDefaults: {
-    userId: 'user-1',
-    tenantId: 'acme-corp'
-  }
 };

@@ -138,7 +138,14 @@
 
   <!-- ── Invite modal ───────────────────────────────────────────────────── -->
   @if (showInviteForm()) {
-    <div class="modal-backdrop" (click)="closeInviteForm()">
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeInviteForm()"
+      (keydown.escape)="closeInviteForm()"
+      (keyup.enter)="closeInviteForm()">
       <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="invite-title">
 
         <div class="modal-header">

@@ -146,7 +146,13 @@
       (click)="closeInviteForm()"
       (keydown.escape)="closeInviteForm()"
       (keyup.enter)="closeInviteForm()">
-      <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="invite-title">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
 
         <div class="modal-header">
           <h2 id="invite-title" class="modal-title">Invite user</h2>

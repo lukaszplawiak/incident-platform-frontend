@@ -1,0 +1,262 @@
+<div class="admin-page">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">Teams</h1>
+      <p class="admin-subtitle">{{ teams().length }} team(s) in this organisation</p>
+    </div>
+    <button class="btn btn--primary" (click)="openCreateForm()">
+      + Create team
+    </button>
+  </div>
+
+  <!-- ── Teams list ─────────────────────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="loading-state">Loading teams...</div>
+  } @else if (teams().length === 0) {
+    <div class="empty-state">
+      No teams yet. Create the first team to organise your responders.
+    </div>
+  } @else {
+    <div class="teams-layout">
+
+      <!-- Left: team list -->
+      <div class="teams-list">
+        @for (team of teams(); track trackByTeamId($index, team)) {
+          <div
+            class="team-card"
+            [class.team-card--selected]="selectedTeamId() === team.id"
+            role="button"
+            tabindex="0"
+            (click)="selectTeam(team.id)"
+            (keyup.enter)="selectTeam(team.id)"
+            (keyup.space)="selectTeam(team.id)">
+
+            <div class="team-card__body">
+              <div class="team-card__name">{{ team.name }}</div>
+              @if (team.description) {
+                <div class="team-card__desc">{{ team.description }}</div>
+              }
+              <div class="team-card__meta">
+                Created {{ team.createdAt | date:'dd MMM yyyy' }}
+              </div>
+            </div>
+
+            <div class="team-card__actions" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+              @if (confirmingArchive() === team.id) {
+                <span class="confirm-text">Archive?</span>
+                <button class="action-btn action-btn--danger" (click)="archiveTeam(team)">Yes</button>
+                <button class="action-btn" (click)="cancelArchive()">No</button>
+              } @else {
+                <button
+                  class="action-btn action-btn--danger"
+                  title="Archive team"
+                  (click)="confirmArchive(team.id)">
+                  Archive
+                </button>
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <!-- Right: members panel -->
+      @if (selectedTeamId()) {
+        <div class="members-panel">
+          <div class="members-header">
+            <h2 class="members-title">{{ selectedTeam()?.name }} — Members</h2>
+            <button class="btn btn--primary btn--sm" (click)="openAddMemberForm()">
+              + Add member
+            </button>
+          </div>
+
+          @if (membersLoading()) {
+            <div class="loading-state">Loading members...</div>
+          } @else if (members().length === 0) {
+            <div class="empty-state">No members yet. Add the first member.</div>
+          } @else {
+            <table class="table" aria-label="Team members">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (member of members(); track trackByUserId($index, member)) {
+                  <tr>
+                    <td class="cell-email">{{ member.email }}</td>
+                    <td>
+                      <select
+                        class="role-select"
+                        [value]="member.teamRole"
+                        (change)="updateMemberRole(member, $any($event.target).value)"
+                        [attr.aria-label]="'Role for ' + member.email">
+                        @for (role of teamRoles; track role) {
+                          <option [value]="role">{{ role }}</option>
+                        }
+                      </select>
+                    </td>
+                    <td class="cell-date">{{ member.joinedAt | date:'dd MMM yyyy' }}</td>
+                    <td class="cell-actions">
+                      @if (confirmingRemoveMember() === member.userId) {
+                        <span class="confirm-text">Remove?</span>
+                        <button class="action-btn action-btn--danger" (click)="removeMember(member)">Yes</button>
+                        <button class="action-btn" (click)="cancelRemoveMember()">No</button>
+                      } @else {
+                        <button
+                          class="action-btn action-btn--danger"
+                          title="Remove from team"
+                          (click)="confirmRemoveMember(member.userId)">
+                          Remove
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      }
+
+    </div>
+  }
+
+  <!-- ── Create team modal ──────────────────────────────────────────────── -->
+  @if (showCreateForm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeCreateForm()"
+      (keydown.escape)="closeCreateForm()"
+      (keyup.enter)="closeCreateForm()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-team-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="create-team-title" class="modal-title">Create team</h2>
+          <button class="modal-close" aria-label="Close" (click)="closeCreateForm()">✕</button>
+        </div>
+
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+
+          <div class="form-group">
+            <label class="form-label" for="team-name">Team name</label>
+            <input
+              id="team-name"
+              type="text"
+              class="form-input"
+              [class.form-input--error]="hasCreateError('name', 'required') || hasCreateError('name', 'minlength')"
+              formControlName="name"
+              placeholder="e.g. Backend Team">
+            @if (hasCreateError('name', 'required')) {
+              <span class="form-error">Name is required</span>
+            } @else if (hasCreateError('name', 'minlength')) {
+              <span class="form-error">Name must be at least 2 characters</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="team-description">Description (optional)</label>
+            <textarea
+              id="team-description"
+              class="form-input form-textarea"
+              formControlName="description"
+              placeholder="What does this team handle?">
+            </textarea>
+            @if (hasCreateError('description', 'maxlength')) {
+              <span class="form-error">Description must not exceed 500 characters</span>
+            }
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn--secondary" (click)="closeCreateForm()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="createLoading()">
+              @if (createLoading()) { Creating... } @else { Create team }
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ── Add member modal ───────────────────────────────────────────────── -->
+  @if (showAddMemberForm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeAddMemberForm()"
+      (keydown.escape)="closeAddMemberForm()"
+      (keyup.enter)="closeAddMemberForm()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-member-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="add-member-title" class="modal-title">Add member to {{ selectedTeam()?.name }}</h2>
+          <button class="modal-close" aria-label="Close" (click)="closeAddMemberForm()">✕</button>
+        </div>
+
+        <form [formGroup]="addMemberForm" (ngSubmit)="submitAddMember()" novalidate>
+
+          <div class="form-group">
+            <label class="form-label" for="member-user">User</label>
+            <select
+              id="member-user"
+              class="form-input"
+              [class.form-input--error]="hasAddMemberError('userId', 'required')"
+              formControlName="userId">
+              <option value="">— Select user —</option>
+              @for (user of availableUsers(); track user.id) {
+                <option [value]="user.id">{{ user.email }}</option>
+              }
+            </select>
+            @if (hasAddMemberError('userId', 'required')) {
+              <span class="form-error">User is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="member-role">Team role</label>
+            <select id="member-role" class="form-input" formControlName="teamRole">
+              <option value="RESPONDER">Responder — receives and responds to incidents</option>
+              <option value="MANAGER">Manager — manages membership and on-call</option>
+            </select>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn--secondary" (click)="closeAddMemberForm()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="addMemberLoading()">
+              @if (addMemberLoading()) { Adding... } @else { Add member }
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  }
+
+</div>

@@ -1,5 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UserService } from '../../../core/services/user.service';
 import { ToastService } from '../../../shared/components/toast/toast.service';
@@ -9,7 +9,7 @@ import { PageResponse } from '../../../core/models/incident.model';
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [ReactiveFormsModule, DatePipe],
   templateUrl: './users.html',
   styleUrl: './users.scss'
 })

@@ -427,7 +427,7 @@ describe('AuthService', () => {
     it('calls logout when refresh fails', () => {
       const spy = vi.spyOn(router, 'navigate');
 
-      service.refresh().subscribe({ error: () => {} });
+      service.refresh().subscribe({ error: (_err: unknown) => { /* expected error — refresh token expired */ } });
       httpMock.expectOne(REFRESH_URL).flush(
         { message: 'Refresh token expired' },
         { status: 401, statusText: 'Unauthorized' }

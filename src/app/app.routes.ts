@@ -8,6 +8,8 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
 
+  // ── Public auth routes ─────────────────────────────────────────────────────
+
   {
     path: 'login',
     loadComponent: () =>
@@ -15,6 +17,16 @@ export const routes: Routes = [
         .then(m => m.Login),
     title: 'Login — Incident Platform'
   },
+
+  {
+    path: 'auth/mfa',
+    loadComponent: () =>
+      import('./features/auth/mfa-verify/mfa-verify')
+        .then(m => m.MfaVerify),
+    title: 'Two-Factor Authentication — Incident Platform'
+  },
+
+  // ── Protected routes ───────────────────────────────────────────────────────
 
   {
     path: 'incidents',
@@ -33,6 +45,8 @@ export const routes: Routes = [
         .then(m => m.IncidentDetail),
     title: 'Incident Detail — Incident Platform'
   },
+
+  // ── Error routes ───────────────────────────────────────────────────────────
 
   {
     path: 'forbidden',

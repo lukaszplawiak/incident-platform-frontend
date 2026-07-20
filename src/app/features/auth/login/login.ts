@@ -4,7 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { AuthService } from '../../../core/services/auth.service';
 import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
-import { environment } from '../../../../environments/environment';
+import { LoginResponse } from '../../../core/models/auth.model';
 
 @Component({
   selector: 'app-login',
@@ -24,21 +24,22 @@ export class Login {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
-  private readonly defaults = (environment as typeof environment & {
-    devDefaults?: { userId: string; tenantId: string };
-  }).devDefaults;
-
   readonly loginForm: FormGroup = this.fb.group({
-    userId: [this.defaults?.userId ?? '', [
+    email: ['', [
       Validators.required,
-      Validators.minLength(1),
-      Validators.maxLength(50)
+      Validators.email,
+      Validators.maxLength(254),
     ]],
-    tenantId: [this.defaults?.tenantId ?? '', [
+    password: ['', [
       Validators.required,
       Validators.minLength(1),
-      Validators.maxLength(50)
-    ]]
+      Validators.maxLength(128),
+    ]],
+    tenantId: ['default', [
+      Validators.required,
+      Validators.minLength(1),
+      Validators.maxLength(50),
+    ]],
   });
 
   onSubmit(): void {
@@ -50,26 +51,42 @@ export class Login {
     this.loading.set(true);
     this.error.set(null);
 
-    const { userId, tenantId } = this.loginForm.value as {
-      userId: string;
+    const { email, password, tenantId } = this.loginForm.value as {
+      email: string;
+      password: string;
       tenantId: string;
     };
 
     this.logger.info('Login attempt initiated');
 
-    this.authService.login(userId, tenantId).subscribe({
-      next: () => {
+    this.authService.login({ email, password }, tenantId).subscribe({
+      next: (response: LoginResponse) => {
         this.loading.set(false);
-        this.logger.info('Login successful');
 
-        this.idleService.stopWatching();
+        if (response.mfaRequired && response.mfaToken) {
+          // MFA step required — navigate to MFA verify screen.
+          // Pass mfaToken and tenantId via router state (not URL — tokens
+          // must not appear in browser history or server logs).
+          this.logger.info('MFA required — redirecting to verify screen');
+          this.router.navigate(['/auth/mfa'], {
+            state: {
+              mfaToken: response.mfaToken,
+              tenantId,
+            }
+          });
+          return;
+        }
+
+        // Single-factor login succeeded — tokens stored by AuthService.login()
+        this.logger.info('Login successful');
+        this.idleService.startWatching();
 
         const redirectUrl = this.getSafeRedirectUrl();
         this.router.navigateByUrl(redirectUrl);
       },
       error: (err: Error) => {
         this.loading.set(false);
-        this.error.set(err.message);
+        this.error.set(this.humanizeError(err));
         this.logger.warn('Login failed', { message: err.message });
       }
     });
@@ -87,5 +104,21 @@ export class Login {
       return redirect;
     }
     return '/incidents';
+  }
+
+  private humanizeError(err: Error): string {
+    // Map HTTP status codes to user-friendly messages.
+    // The error interceptor wraps HttpErrorResponse into Error with a message
+    // containing the status code.
+    if (err.message.includes('401')) {
+      return 'Invalid email or password. Please try again.';
+    }
+    if (err.message.includes('423') || err.message.includes('locked')) {
+      return 'Account locked due to too many failed attempts. Please try again later.';
+    }
+    if (err.message.includes('0') || err.message.includes('network')) {
+      return 'Cannot connect to the server. Check your network connection.';
+    }
+    return 'Login failed. Please try again.';
   }
 }

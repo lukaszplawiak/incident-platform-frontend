@@ -58,6 +58,15 @@ export const routes: Routes = [
     title: 'Users — Incident Platform'
   },
 
+  {
+    path: 'admin/teams',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./features/admin/teams/teams')
+        .then(m => m.Teams),
+    title: 'Teams — Incident Platform'
+  },
+
   // ── Error routes ───────────────────────────────────────────────────────────
 
   {

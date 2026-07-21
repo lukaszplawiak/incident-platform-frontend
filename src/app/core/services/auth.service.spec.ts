@@ -461,4 +461,31 @@ describe('AuthService', () => {
       expect(service.isAuthenticated()).toBe(false);
     });
   });
+
+  describe('acceptInvite', () => {
+  it('POSTs to /api/v1/auth/accept-invite with token and password', () => {
+    const service = TestBed.inject(AuthService);
+
+    service.acceptInvite({ token: 'invite-token-abc', password: 'a-secure-password-123' })
+      .subscribe();
+
+    const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      token: 'invite-token-abc',
+      password: 'a-secure-password-123',
+    });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('does not send an X-Tenant-Id header (tenant is embedded in the token)', () => {
+    const service = TestBed.inject(AuthService);
+
+    service.acceptInvite({ token: 't', password: 'a-secure-password-123' }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
+    expect(req.request.headers.has('X-Tenant-Id')).toBe(false);
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
+});
 });

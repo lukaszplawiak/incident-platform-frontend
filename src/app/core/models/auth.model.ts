@@ -76,3 +76,12 @@ export interface JwtPayload {
   iat: number;
   exp: number;
 }
+
+/**
+ * Request body for POST /api/v1/auth/accept-invite.
+ * tenantId is embedded server-side in the invite token — not sent here.
+ */
+export interface AcceptInviteRequest {
+  token: string;
+  password: string;
+}

@@ -1,0 +1,146 @@
+// Shared visual language for public, unauthenticated auth screens
+// (login, mfa-verify, accept-invite, and — from Branch 7 — forgot/reset
+// password). Extracted after the third near-identical copy of this file;
+// mfa-verify.scss had a comment flagging this as future work.
+
+@mixin card-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a202c;
+  padding: 16px;
+}
+
+@mixin card {
+  width: 100%;
+  max-width: 400px;
+  background: #2d3748;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+@mixin card-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+@mixin title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f7fafc;
+  margin: 0 0 8px;
+}
+
+@mixin subtitle {
+  font-size: 14px;
+  color: #a0aec0;
+  margin: 0;
+}
+
+@mixin banner($bg, $border, $color) {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  background-color: $bg;
+  border: 1px solid $border;
+  color: $color;
+}
+
+@mixin error-banner {
+  @include banner(#742a2a, #fc8181, #fed7d7);
+}
+
+@mixin success-banner {
+  @include banner(#22543d, #68d391, #c6f6d5);
+}
+
+@mixin form-group {
+  margin-bottom: 20px;
+}
+
+@mixin form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+}
+
+@mixin form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #1a202c;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  color: #f7fafc;
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.15);
+  }
+
+  &::placeholder {
+    color: #718096;
+  }
+
+  &.form-input--error {
+    border-color: #fc8181;
+
+    &:focus {
+      border-color: #fc8181;
+      box-shadow: 0 0 0 3px rgba(252, 129, 129, 0.15);
+    }
+  }
+}
+
+@mixin form-error {
+  display: block;
+  font-size: 12px;
+  color: #fc8181;
+  margin-top: 4px;
+}
+
+@mixin primary-button {
+  width: 100%;
+  padding: 12px;
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 8px;
+
+  &:hover:not(:disabled) {
+    background: #2b6cb0;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin links-row {
+  text-align: center;
+  font-size: 13px;
+  margin: 20px 0 0;
+}
+
+@mixin link {
+  color: #63b3ed;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

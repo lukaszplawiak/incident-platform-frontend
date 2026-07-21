@@ -1,15 +1,17 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders } from '@angular/common/http';
 import { Observable, tap, interval, map, filter, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { IS_PUBLIC_AUTH_ENDPOINT } from '../http-context/public-endpoint.context';
 import {
   LoginRequest,
   LoginResponse,
   RefreshRequest,
   RefreshResponse,
   MfaVerifyRequest,
+  AcceptInviteRequest,
   JwtPayload,
 } from '../models/auth.model';
 
@@ -110,8 +112,9 @@ export class AuthService {
   login(request: LoginRequest, tenantId: string): Observable<LoginResponse> {
     const url = `${environment.authApiUrl}/api/v1/auth/login`;
     const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
 
-    return this.http.post<LoginResponse>(url, request, { headers }).pipe(
+    return this.http.post<LoginResponse>(url, request, { headers, context }).pipe(
       tap(response => {
         if (!response.mfaRequired && response.accessToken && response.refreshToken) {
           this.storeTokens(response.accessToken, response.refreshToken);
@@ -132,14 +135,34 @@ export class AuthService {
   verifyMfa(request: MfaVerifyRequest, tenantId: string): Observable<LoginResponse> {
     const url = `${environment.authApiUrl}/api/v1/auth/mfa/verify`;
     const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
 
-    return this.http.post<LoginResponse>(url, request, { headers }).pipe(
+    return this.http.post<LoginResponse>(url, request, { headers, context }).pipe(
       tap(response => {
         if (response.accessToken && response.refreshToken) {
           this.storeTokens(response.accessToken, response.refreshToken);
         }
       })
     );
+  }
+
+  /**
+   * POST /api/v1/auth/accept-invite
+   *
+   * Called from the accept-invite screen reached via the invite email
+   * link. Sets the invited user's password and consumes the single-use
+   * invite token in one server-side transaction. Returns 204 No Content —
+   * no tokens are issued here; the user logs in separately afterwards
+   * with their new password.
+   *
+   * tenantId is embedded in the invite token server-side, so no
+   * X-Tenant-Id header is needed (unlike login/verifyMfa).
+   */
+  acceptInvite(request: AcceptInviteRequest): Observable<void> {
+    const url = `${environment.authApiUrl}/api/v1/auth/accept-invite`;
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<void>(url, request, { context });
   }
 
   /**

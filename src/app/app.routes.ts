@@ -27,6 +27,14 @@ export const routes: Routes = [
     title: 'Two-Factor Authentication — Incident Platform'
   },
 
+  {
+    path: 'accept-invite',
+    loadComponent: () =>
+      import('./features/auth/accept-invite/accept-invite')
+        .then(m => m.AcceptInvite),
+    title: 'Accept Invitation — Incident Platform'
+  },
+
   // ── Protected routes ───────────────────────────────────────────────────────
 
   {

@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { AuthService } from '../../../core/services/auth.service';
 import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
+import { ApiError } from '../../../core/errors/api-error';
 
 /**
  * MFA verification screen — shown after login when mfaRequired=true.
@@ -94,11 +95,16 @@ export class MfaVerify implements OnInit {
   }
 
   private humanizeError(err: Error): string {
-    if (err.message.includes('401') || err.message.includes('invalid')) {
-      return 'Invalid or expired code. Please check your authenticator app and try again.';
-    }
-    if (err.message.includes('0') || err.message.includes('network')) {
-      return 'Cannot connect to the server. Check your network connection.';
+    // See login.ts for why this branches on ApiError.status rather than
+    // matching substrings — the interceptor's translated messages never
+    // contain the raw status code.
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        return 'Invalid or expired code. Please check your authenticator app and try again.';
+      }
+      if (err.status === 0) {
+        return 'Cannot connect to the server. Check your network connection.';
+      }
     }
     return 'Verification failed. Please try again.';
   }

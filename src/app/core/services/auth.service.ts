@@ -12,6 +12,8 @@ import {
   RefreshResponse,
   MfaVerifyRequest,
   AcceptInviteRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
   JwtPayload,
 } from '../models/auth.model';
 
@@ -160,6 +162,45 @@ export class AuthService {
    */
   acceptInvite(request: AcceptInviteRequest): Observable<void> {
     const url = `${environment.authApiUrl}/api/v1/auth/accept-invite`;
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<void>(url, request, { context });
+  }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   *
+   * Always resolves successfully (backend returns 202 regardless of
+   * whether the email has an account — user enumeration protection).
+   * Callers must not infer anything about account existence from the
+   * response; there is exactly one success state.
+   *
+   * tenantId is sent as X-Tenant-Id — ForgotPasswordService looks the
+   * user up by email *and* tenantId, since the same email can exist in
+   * more than one tenant (same reasoning as login()).
+   */
+  forgotPassword(request: ForgotPasswordRequest, tenantId: string): Observable<void> {
+    const url = `${environment.authApiUrl}/api/v1/auth/forgot-password`;
+    const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<void>(url, request, { headers, context });
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   *
+   * Sets a new password using the single-use token from the reset email.
+   * On success, auth-service invalidates all of the user's refresh
+   * tokens — every other active session is logged out.
+   *
+   * Deliberately no X-Tenant-Id header: PasswordService.resetPassword()
+   * accepts a tenantId parameter but never reads it (verified against the
+   * service implementation, not just the controller signature) — the
+   * reset token alone identifies the user.
+   */
+  resetPassword(request: ResetPasswordRequest): Observable<void> {
+    const url = `${environment.authApiUrl}/api/v1/auth/reset-password`;
     const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
 
     return this.http.post<void>(url, request, { context });

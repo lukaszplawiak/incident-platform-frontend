@@ -1,0 +1,348 @@
+<div class="admin-page">
+
+  <!-- ── Two-tab layout ────────────────────────────────────────────────── -->
+  <div class="admin-header">
+    <h1 class="admin-title">Integrations & API Keys</h1>
+  </div>
+
+  <!-- ── Integrations section ──────────────────────────────────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Integrations</h2>
+        <p class="section-desc">
+          Connect alert sources to teams. Each integration gets a dedicated API key
+          for routing alerts to the correct on-call.
+        </p>
+      </div>
+      <button class="btn btn--primary" (click)="openIntegrationForm()">
+        + New integration
+      </button>
+    </div>
+
+    @if (integrations().length === 0) {
+      <div class="empty-state">
+        No integrations yet. Create one to start routing alerts to your teams.
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="table" aria-label="Integrations">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Team</th>
+              <th>Created</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (integration of integrations(); track trackByIntegrationId($index, integration)) {
+              <tr>
+                <td class="cell-name">{{ integration.name }}</td>
+                <td>
+                  <span class="team-badge">{{ integration.teamName }}</span>
+                </td>
+                <td class="cell-date">{{ integration.createdAt | date:'dd MMM yyyy' }}</td>
+                <td class="cell-actions">
+                  @if (confirmingDeleteIntegration() === integration.id) {
+                    <span class="confirm-text">Delete?</span>
+                    <button class="action-btn action-btn--danger" (click)="deleteIntegration(integration)">Yes</button>
+                    <button class="action-btn" (click)="cancelDeleteIntegration()">No</button>
+                  } @else {
+                    <button
+                      class="action-btn action-btn--danger"
+                      title="Delete integration"
+                      (click)="confirmDeleteIntegration(integration.id)">
+                      Delete
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- ── Personal API Keys section ─────────────────────────────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Personal API Keys</h2>
+        <p class="section-desc">
+          Long-lived credentials for scripts and CI/CD pipelines.
+          Scoped to your account.
+        </p>
+      </div>
+      <button class="btn btn--primary" (click)="openApiKeyForm()">
+        + New key
+      </button>
+    </div>
+
+    @if (apiKeys().length === 0) {
+      <div class="empty-state">No personal API keys yet.</div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="table" aria-label="Personal API Keys">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Scopes</th>
+              <th>Expires</th>
+              <th>Last used</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (key of apiKeys(); track trackByKeyId($index, key)) {
+              <tr>
+                <td class="cell-name">{{ key.name }}</td>
+                <td>
+                  @for (scope of key.scopes; track scope) {
+                    <span class="scope-badge">{{ scope }}</span>
+                  }
+                </td>
+                <td class="cell-date">
+                  {{ key.expiresAt ? (key.expiresAt | date:'dd MMM yyyy') : '—' }}
+                </td>
+                <td class="cell-date">
+                  {{ key.lastUsedAt ? (key.lastUsedAt | date:'dd MMM yyyy') : 'Never' }}
+                </td>
+                <td class="cell-actions">
+                  @if (confirmingRevoke() === key.id) {
+                    <span class="confirm-text">Revoke?</span>
+                    <button class="action-btn action-btn--danger" (click)="revokeApiKey(key)">Yes</button>
+                    <button class="action-btn" (click)="cancelRevoke()">No</button>
+                  } @else {
+                    <button
+                      class="action-btn action-btn--danger"
+                      title="Revoke key"
+                      (click)="confirmRevoke(key.id)">
+                      Revoke
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- ── New token modal (shown once after creation) ───────────────────── -->
+  @if (newTokenModal()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeTokenModal()"
+      (keydown.escape)="closeTokenModal()"
+      (keyup.enter)="closeTokenModal()">
+      <div
+        class="modal modal--token"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="token-modal-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="token-modal-title" class="modal-title">
+            🔑 Save your API key
+          </h2>
+        </div>
+
+        <div class="token-warning">
+          ⚠ This key is shown <strong>once only</strong>.
+          Copy it now — you will not be able to see it again.
+        </div>
+
+        <div class="token-display">
+          <code class="token-value">{{ newTokenModal()!.rawToken }}</code>
+          <button
+            class="copy-btn"
+            [class.copy-btn--copied]="tokenCopied()"
+            (click)="copyToken()">
+            {{ tokenCopied() ? '✓ Copied' : 'Copy' }}
+          </button>
+        </div>
+
+        @if (newTokenModal()!.expiresAt) {
+          <p class="token-expiry">
+            Expires: {{ newTokenModal()!.expiresAt | date:'dd MMM yyyy' }}
+          </p>
+        }
+
+        <div class="modal-actions">
+          <button
+            class="btn btn--primary"
+            [disabled]="!tokenCopied()"
+            (click)="closeTokenModal()">
+            {{ tokenCopied() ? 'Done' : 'Copy the key first' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  }
+
+  <!-- ── Create API key modal ───────────────────────────────────────────── -->
+  @if (showApiKeyForm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeApiKeyForm()"
+      (keydown.escape)="closeApiKeyForm()"
+      (keyup.enter)="closeApiKeyForm()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apikey-form-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="apikey-form-title" class="modal-title">New personal API key</h2>
+          <button class="modal-close" aria-label="Close" (click)="closeApiKeyForm()">✕</button>
+        </div>
+
+        <form [formGroup]="apiKeyForm" (ngSubmit)="submitApiKey()" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="apikey-name">Key name</label>
+            <input
+              id="apikey-name"
+              type="text"
+              class="form-input"
+              [class.form-input--error]="hasApiKeyError('name', 'required')"
+              formControlName="name"
+              placeholder="e.g. CI/CD Pipeline">
+            @if (hasApiKeyError('name', 'required')) {
+              <span class="form-error">Name is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <span class="form-label">Scopes</span>
+            <div class="scopes-grid">
+              @for (scope of allScopes; track scope) {
+                <label class="scope-checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="isScopeSelected(scope)"
+                    (change)="toggleScope(scope)">
+                  <span>{{ scope }}</span>
+                </label>
+              }
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="apikey-ttl">Expiry (days, optional)</label>
+            <input
+              id="apikey-ttl"
+              type="number"
+              class="form-input"
+              formControlName="ttlDays"
+              placeholder="e.g. 90 — leave empty for no expiry"
+              min="1">
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn--secondary" (click)="closeApiKeyForm()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="apiKeyLoading()">
+              @if (apiKeyLoading()) { Creating... } @else { Create key }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ── Create integration modal ──────────────────────────────────────── -->
+  @if (showIntegrationForm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeIntegrationForm()"
+      (keydown.escape)="closeIntegrationForm()"
+      (keyup.enter)="closeIntegrationForm()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="integration-form-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="integration-form-title" class="modal-title">New integration</h2>
+          <button class="modal-close" aria-label="Close" (click)="closeIntegrationForm()">✕</button>
+        </div>
+
+        <form [formGroup]="integrationForm" (ngSubmit)="submitIntegration()" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="integration-name">Integration name</label>
+            <input
+              id="integration-name"
+              type="text"
+              class="form-input"
+              [class.form-input--error]="hasIntegrationError('name', 'required')"
+              formControlName="name"
+              placeholder="e.g. Prometheus — Payment API">
+            @if (hasIntegrationError('name', 'required')) {
+              <span class="form-error">Name is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="integration-team">Route alerts to team</label>
+            <select
+              id="integration-team"
+              class="form-input"
+              [class.form-input--error]="hasIntegrationError('teamId', 'required')"
+              formControlName="teamId">
+              <option value="">— Select team —</option>
+              @for (team of teams(); track team.id) {
+                <option [value]="team.id">{{ team.name }}</option>
+              }
+            </select>
+            @if (hasIntegrationError('teamId', 'required')) {
+              <span class="form-error">Team is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="integration-ttl">Expiry (days, optional)</label>
+            <input
+              id="integration-ttl"
+              type="number"
+              class="form-input"
+              formControlName="ttlDays"
+              placeholder="Leave empty for no expiry"
+              min="1">
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn--secondary" (click)="closeIntegrationForm()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="integrationLoading()">
+              @if (integrationLoading()) { Creating... } @else { Create integration }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+</div>

@@ -1,0 +1,122 @@
+// ... (pełna zawartość users.scss jako baza) ...
+
+.section {
+  margin-bottom: 48px;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f7fafc;
+  margin: 0 0 4px;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: #a0aec0;
+  margin: 0;
+  max-width: 480px;
+}
+
+.team-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #1a365d;
+  color: #90cdf4;
+}
+
+.scope-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  background: #2d3748;
+  color: #68d391;
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+
+.scopes-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scope-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #e2e8f0;
+  cursor: pointer;
+
+  input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+}
+
+// ── Token modal ───────────────────────────────────────────────────────────────
+
+.modal--token { max-width: 560px; }
+
+.token-warning {
+  background: #744210;
+  border: 1px solid #d69e2e;
+  color: #fefcbf;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.token-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #1a202c;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.token-value {
+  flex: 1;
+  font-family: monospace;
+  font-size: 13px;
+  color: #68d391;
+  word-break: break-all;
+  user-select: all;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &--copied { background: #276749; }
+  &:hover:not(&--copied) { background: #2b6cb0; }
+}
+
+.token-expiry {
+  font-size: 13px;
+  color: #a0aec0;
+  margin: 0 0 16px;
+}

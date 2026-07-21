@@ -1,0 +1,94 @@
+<div class="login-container">
+  <div class="login-card">
+
+    <div class="login-header">
+      <h1 class="login-title">🎟️ Accept Invitation</h1>
+      <p class="login-subtitle">Set a password to activate your account</p>
+    </div>
+
+    @if (tokenMissing) {
+      <div class="login-error" role="alert">
+        This invite link is missing or invalid. Please use the link from your invite
+        email, or ask an administrator to resend the invite.
+      </div>
+      <p class="login-links">
+        <a [routerLink]="['/login']" class="login-link">← Back to login</a>
+      </p>
+    } @else {
+
+      @if (error()) {
+        <div class="login-error" role="alert">
+          {{ error() }}
+        </div>
+      }
+
+      <form [formGroup]="acceptInviteForm" (ngSubmit)="onSubmit()" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="password">New password</label>
+          <input
+            id="password"
+            type="password"
+            class="form-input"
+            [class.form-input--error]="hasError('password', 'required') || hasError('password', 'minlength')"
+            formControlName="password"
+            placeholder="••••••••••••"
+            autocomplete="new-password"
+            [attr.aria-describedby]="hasError('password', 'required') || hasError('password', 'minlength') ? 'password-error' : null">
+
+          @if (hasError('password', 'required')) {
+            <span id="password-error" class="form-error" role="alert">
+              Password is required
+            </span>
+          } @else if (hasError('password', 'minlength')) {
+            <span id="password-error" class="form-error" role="alert">
+              Password must be at least 12 characters
+            </span>
+          } @else {
+            <span class="password-hint">Minimum 12 characters</span>
+          }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmPassword">Confirm password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            class="form-input"
+            [class.form-input--error]="hasError('confirmPassword', 'required') || hasMismatchError()"
+            formControlName="confirmPassword"
+            placeholder="••••••••••••"
+            autocomplete="new-password"
+            [attr.aria-describedby]="hasError('confirmPassword', 'required') || hasMismatchError() ? 'confirm-password-error' : null">
+
+          @if (hasError('confirmPassword', 'required')) {
+            <span id="confirm-password-error" class="form-error" role="alert">
+              Please confirm your password
+            </span>
+          } @else if (hasMismatchError()) {
+            <span id="confirm-password-error" class="form-error" role="alert">
+              Passwords do not match
+            </span>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="login-button"
+          [disabled]="loading()">
+          @if (loading()) {
+            <span>Setting password...</span>
+          } @else {
+            <span>Set password &amp; activate account</span>
+          }
+        </button>
+
+      </form>
+
+      <p class="login-links">
+        <a [routerLink]="['/login']" class="login-link">← Back to login</a>
+      </p>
+    }
+
+  </div>
+</div>

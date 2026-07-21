@@ -5,8 +5,11 @@ import { provideRouter } from '@angular/router';
 import { Router } from '@angular/router';
 import { vi } from 'vitest';
 
+import { HttpContext } from '@angular/common/http';
 import { errorInterceptor } from './error.interceptor';
 import { AuthService } from '../services/auth.service';
+import { ApiError } from '../errors/api-error';
+import { IS_PUBLIC_AUTH_ENDPOINT } from '../http-context/public-endpoint.context';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -345,6 +348,55 @@ describe('errorInterceptor', () => {
 
         expect(errorMessage).toBe(expected);
       });
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ApiError — status code preservation
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('ApiError', () => {
+    it('preserves the original HTTP status on the thrown error', async () => {
+      vi.useFakeTimers();
+      let caught: unknown;
+
+      http.get(TEST_URL).subscribe({ error: (e: unknown) => { caught = e; } });
+
+      httpMock.expectOne(TEST_URL).flush({}, { status: 409, statusText: 'Conflict' });
+      await vi.runAllTimersAsync();
+
+      expect(caught).toBeInstanceOf(ApiError);
+      expect((caught as ApiError).status).toBe(409);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // IS_PUBLIC_AUTH_ENDPOINT context — public auth endpoints (login,
+  // accept-invite, ...) must not trigger the global session-expiry redirect.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('IS_PUBLIC_AUTH_ENDPOINT context', () => {
+    it('does not call authService.logout() on 401 when marked public', async () => {
+      vi.useFakeTimers();
+      const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+      http.post(TEST_URL, {}, { context }).subscribe({ error: () => undefined });
+
+      httpMock.expectOne(TEST_URL).flush({}, { status: 401, statusText: 'Unauthorized' });
+      await vi.runAllTimersAsync();
+
+      expect(mockAuthService.logout).not.toHaveBeenCalled();
+    });
+
+    it('still calls authService.logout() on 401 when not marked public', async () => {
+      vi.useFakeTimers();
+
+      http.post(TEST_URL, {}).subscribe({ error: () => undefined });
+
+      httpMock.expectOne(TEST_URL).flush({}, { status: 401, statusText: 'Unauthorized' });
+      await vi.runAllTimersAsync();
+
+      expect(mockAuthService.logout).toHaveBeenCalledTimes(1);
     });
   });
 });

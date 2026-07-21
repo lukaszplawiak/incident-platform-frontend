@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { IdleService } from '../../../core/services/idle.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { LoginResponse } from '../../../core/models/auth.model';
+import { ApiError } from '../../../core/errors/api-error';
 
 @Component({
   selector: 'app-login',
@@ -107,17 +108,21 @@ export class Login {
   }
 
   private humanizeError(err: Error): string {
-    // Map HTTP status codes to user-friendly messages.
-    // The error interceptor wraps HttpErrorResponse into Error with a message
-    // containing the status code.
-    if (err.message.includes('401')) {
-      return 'Invalid email or password. Please try again.';
-    }
-    if (err.message.includes('423') || err.message.includes('locked')) {
-      return 'Account locked due to too many failed attempts. Please try again later.';
-    }
-    if (err.message.includes('0') || err.message.includes('network')) {
-      return 'Cannot connect to the server. Check your network connection.';
+    // The error interceptor throws an ApiError, which preserves the real
+    // HTTP status code — branch on that directly rather than matching
+    // substrings against translated UI copy (the previous approach here
+    // never actually matched anything, since the interceptor's messages
+    // don't contain the numeric status).
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        return 'Invalid email or password. Please try again.';
+      }
+      if (err.status === 423) {
+        return 'Account locked due to too many failed attempts. Please try again later.';
+      }
+      if (err.status === 0) {
+        return 'Cannot connect to the server. Check your network connection.';
+      }
     }
     return 'Login failed. Please try again.';
   }

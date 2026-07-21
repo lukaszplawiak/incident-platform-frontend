@@ -85,3 +85,26 @@ export interface AcceptInviteRequest {
   token: string;
   password: string;
 }
+
+/**
+ * Request body for POST /api/v1/auth/forgot-password.
+ * tenantId is sent separately as X-Tenant-Id header — see AuthService.
+ * ForgotPasswordService looks the user up by email *and* tenantId, since
+ * the same email can exist in more than one tenant.
+ */
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+/**
+ * Request body for POST /api/v1/auth/reset-password.
+ *
+ * Deliberately no tenantId field: PasswordService.resetPassword() accepts
+ * a tenantId parameter but never reads it — the reset token alone
+ * identifies the user (confirmed by reading the service implementation,
+ * not just the controller signature).
+ */
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}

@@ -463,29 +463,71 @@ describe('AuthService', () => {
   });
 
   describe('acceptInvite', () => {
-  it('POSTs to /api/v1/auth/accept-invite with token and password', () => {
-    const service = TestBed.inject(AuthService);
+    it('POSTs to /api/v1/auth/accept-invite with token and password', () => {
+      service.acceptInvite({ token: 'invite-token-abc', password: 'a-secure-password-123' })
+        .subscribe();
 
-    service.acceptInvite({ token: 'invite-token-abc', password: 'a-secure-password-123' })
-      .subscribe();
-
-    const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({
-      token: 'invite-token-abc',
-      password: 'a-secure-password-123',
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        token: 'invite-token-abc',
+        password: 'a-secure-password-123',
+      });
+      req.flush(null, { status: 204, statusText: 'No Content' });
     });
-    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    it('does not send an X-Tenant-Id header (tenant is embedded in the token)', () => {
+      service.acceptInvite({ token: 't', password: 'a-secure-password-123' }).subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
+      expect(req.request.headers.has('X-Tenant-Id')).toBe(false);
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
   });
 
-  it('does not send an X-Tenant-Id header (tenant is embedded in the token)', () => {
-    const service = TestBed.inject(AuthService);
+  describe('forgotPassword', () => {
+    it('POSTs to /api/v1/auth/forgot-password with email and X-Tenant-Id header', () => {
+      service.forgotPassword({ email: 'user@acme.com' }, 'acme-corp').subscribe();
 
-    service.acceptInvite({ token: 't', password: 'a-secure-password-123' }).subscribe();
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/forgot-password`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ email: 'user@acme.com' });
+      expect(req.request.headers.get('X-Tenant-Id')).toBe('acme-corp');
+      req.flush(null, { status: 202, statusText: 'Accepted' });
+    });
 
-    const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/accept-invite`);
-    expect(req.request.headers.has('X-Tenant-Id')).toBe(false);
-    req.flush(null, { status: 204, statusText: 'No Content' });
+    it('resolves successfully on 202 regardless of account existence', () => {
+      let resolved = false;
+      service.forgotPassword({ email: 'unknown@acme.com' }, 'acme-corp')
+        .subscribe(() => { resolved = true; });
+
+      httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/forgot-password`)
+        .flush(null, { status: 202, statusText: 'Accepted' });
+
+      expect(resolved).toBe(true);
+    });
   });
-});
+
+  describe('resetPassword', () => {
+    it('POSTs to /api/v1/auth/reset-password with token and newPassword', () => {
+      service.resetPassword({ token: 'reset-token-abc', newPassword: 'a-secure-password' })
+        .subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/reset-password`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        token: 'reset-token-abc',
+        newPassword: 'a-secure-password',
+      });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('does not send an X-Tenant-Id header (server-side parameter is unused)', () => {
+      service.resetPassword({ token: 't', newPassword: 'a-secure-password' }).subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/reset-password`);
+      expect(req.request.headers.has('X-Tenant-Id')).toBe(false);
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
 });

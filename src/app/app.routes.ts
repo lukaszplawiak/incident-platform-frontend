@@ -35,6 +35,22 @@ export const routes: Routes = [
     title: 'Accept Invitation — Incident Platform'
   },
 
+  {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password')
+        .then(m => m.ForgotPassword),
+    title: 'Forgot Password — Incident Platform'
+  },
+
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/auth/reset-password/reset-password')
+        .then(m => m.ResetPassword),
+    title: 'Reset Password — Incident Platform'
+  },
+
   // ── Protected routes ───────────────────────────────────────────────────────
 
   {

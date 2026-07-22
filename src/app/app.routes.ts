@@ -131,4 +131,21 @@ export const routes: Routes = [
         .then(m => m.MfaSettings),
     title: 'Account Security — Incident Platform'
   },
+
+  {
+    path: 'mfa-setup-required',
+    loadComponent: () =>
+      import('./features/auth/mfa-setup-required/mfa-setup-required')
+        .then(m => m.MfaSetupRequired),
+    title: 'Set Up Two-Factor Authentication — Incident Platform'
+  },
+
+  {
+    path: 'admin/settings',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./features/admin/tenant-settings/tenant-settings')
+        .then(m => m.TenantSettings),
+    title: 'Tenant Settings — Incident Platform'
+  }
 ];

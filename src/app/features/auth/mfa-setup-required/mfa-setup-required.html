@@ -1,0 +1,102 @@
+<div class="login-container">
+  <div class="login-card">
+
+    <div class="login-header">
+      <h1 class="login-title">🔐 Set Up Two-Factor Authentication</h1>
+      <p class="login-subtitle">Your organisation requires MFA to sign in</p>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">Setting up...</div>
+
+    } @else if (justEnabledBackupCodes(); as codes) {
+
+      <div class="login-success" role="status">
+        MFA enabled. Save these backup codes somewhere safe — each one can be
+        used once to sign in if you lose access to your authenticator app.
+        <strong>They will not be shown again.</strong>
+      </div>
+
+      <div class="backup-codes">
+        @for (code of codes; track code) {
+          <span class="backup-codes__code">{{ code }}</span>
+        }
+      </div>
+
+      <button class="login-button" (click)="continueToApp()">
+        I've saved my backup codes — continue
+      </button>
+
+    } @else {
+
+      @if (error()) {
+        <div class="login-error" role="alert">
+          {{ error() }}
+        </div>
+      }
+
+      @if (setupResponse(); as setup) {
+        <p class="login-subtitle">
+          Scan with Google Authenticator, 1Password, or any TOTP app. Can't
+          scan it? Enter this code manually instead:
+        </p>
+
+        @if (qrDataUrl(); as qr) {
+          <img class="mfa-qr" [src]="qr" alt="MFA setup QR code" width="220" height="220">
+        }
+
+        <div class="secret-box">
+          <code>{{ setup.secret }}</code>
+        </div>
+
+        <form [formGroup]="enableForm" (ngSubmit)="submitEnable()" novalidate>
+
+          @if (enableError()) {
+            <div class="login-error" role="alert">
+              {{ enableError() }}
+            </div>
+          }
+
+          <div class="form-group">
+            <label class="form-label" for="totpCode">Enter the 6-digit code from your app</label>
+            <input
+              id="totpCode"
+              type="text"
+              inputmode="numeric"
+              class="form-input mfa-input"
+              [class.form-input--error]="hasEnableError('required') || hasEnableError('pattern')"
+              formControlName="totpCode"
+              placeholder="000000"
+              autocomplete="one-time-code"
+              maxlength="6"
+              [attr.aria-describedby]="hasEnableError('required') || hasEnableError('pattern') ? 'totp-error' : null">
+
+            @if (hasEnableError('required')) {
+              <span id="totp-error" class="form-error" role="alert">
+                Code is required
+              </span>
+            } @else if (hasEnableError('pattern')) {
+              <span id="totp-error" class="form-error" role="alert">
+                Code must be exactly 6 digits
+              </span>
+            }
+          </div>
+
+          <button
+            type="submit"
+            class="login-button"
+            [disabled]="enableLoading()">
+            @if (enableLoading()) {
+              <span>Verifying...</span>
+            } @else {
+              <span>Verify &amp; finish signing in</span>
+            }
+          </button>
+
+        </form>
+      }
+
+    }
+
+  </div>
+</div>

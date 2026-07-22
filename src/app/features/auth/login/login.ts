@@ -64,6 +64,22 @@ export class Login {
       next: (response: LoginResponse) => {
         this.loading.set(false);
 
+        if (response.mfaSetupRequired && response.mfaSetupToken) {
+          // Tenant requires MFA and this user has none configured —
+          // password was correct, but login can't complete until setup
+          // finishes. Distinct from mfaRequired below: there, the user
+          // already has MFA and just needs to verify a code; here, they
+          // need to actually configure it first. Same reasoning for
+          // passing the token via router state, not the URL.
+          this.logger.info('Tenant requires MFA, user not configured — redirecting to setup');
+          this.router.navigate(['/mfa-setup-required'], {
+            state: {
+              mfaSetupToken: response.mfaSetupToken,
+            }
+          });
+          return;
+        }
+
         if (response.mfaRequired && response.mfaToken) {
           // MFA step required — navigate to MFA verify screen.
           // Pass mfaToken and tenantId via router state (not URL — tokens

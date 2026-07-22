@@ -84,7 +84,7 @@ export class IncidentService {
         this._incidents.set(response.content);
         this._totalElements.set(response.totalElements);
         this._totalPages.set(response.totalPages);
-        this._currentPage.set(response.number);
+        this._currentPage.set(response.page);
         this._loading.set(false);
         this.logger.debug('Incidents loaded', {
           count: response.content.length,

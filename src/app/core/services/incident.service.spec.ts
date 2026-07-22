@@ -44,7 +44,7 @@ function buildPage(
     totalElements: incidents.length,
     totalPages: 1,
     size: 20,
-    number: 0,
+    page: 0,
     first: true,
     last: true,
     ...overrides,
@@ -179,7 +179,7 @@ describe('IncidentService', () => {
 
     it('updates currentPage from page metadata', () => {
       service.loadIncidents();
-      httpMock.expectOne((r) => r.url === API_URL).flush(buildPage([], { number: 2 }));
+      httpMock.expectOne((r) => r.url === API_URL).flush(buildPage([], { page: 2 }));
 
       expect(service.currentPage()).toBe(2);
     });

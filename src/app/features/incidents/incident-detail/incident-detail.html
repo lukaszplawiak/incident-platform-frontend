@@ -69,11 +69,27 @@
         </div>
 
         <div class="incident-detail__meta-group">
-          <span class="incident-detail__meta-label">Opened At</span>
+          <span class="incident-detail__meta-label">Team</span>
           <span class="incident-detail__meta-value">
-            {{ inc.openedAt | date:'yyyy-MM-dd HH:mm:ss' }}
+            {{ teamName(inc.teamId) }}
           </span>
         </div>
+
+        <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Created At</span>
+          <span class="incident-detail__meta-value">
+            {{ inc.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}
+          </span>
+        </div>
+
+        @if (inc.alertFiredAt) {
+          <div class="incident-detail__meta-group">
+            <span class="incident-detail__meta-label">Alert Fired At</span>
+            <span class="incident-detail__meta-value">
+              {{ inc.alertFiredAt | date:'yyyy-MM-dd HH:mm:ss' }}
+            </span>
+          </div>
+        }
 
         @if (inc.acknowledgedAt) {
           <div class="incident-detail__meta-group">
@@ -93,30 +109,23 @@
           </div>
         }
 
-        @if (inc.mttaSeconds !== null) {
+        @if (inc.mttaMinutes !== null) {
           <div class="incident-detail__meta-group">
             <span class="incident-detail__meta-label">MTTA</span>
             <span class="incident-detail__meta-value">
-              {{ inc.mttaSeconds }}s
+              {{ formatMinutes(inc.mttaMinutes) }}
             </span>
           </div>
         }
 
-        @if (inc.mttrSeconds !== null) {
+        @if (inc.mttrMinutes !== null) {
           <div class="incident-detail__meta-group">
             <span class="incident-detail__meta-label">MTTR</span>
             <span class="incident-detail__meta-value">
-              {{ inc.mttrSeconds }}s
+              {{ formatMinutes(inc.mttrMinutes) }}
             </span>
           </div>
         }
-
-        <div class="incident-detail__meta-group">
-          <span class="incident-detail__meta-label">Fingerprint</span>
-          <span class="incident-detail__meta-value incident-detail__meta-value--mono">
-            {{ inc.fingerprint }}
-          </span>
-        </div>
 
       </div>
 

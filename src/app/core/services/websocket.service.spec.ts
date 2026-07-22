@@ -18,13 +18,32 @@ import { Incident, IncidentWebSocketEvent } from '../models/incident.model';
 // 1. Captures callbacks (onConnect, onDisconnect) from the config
 // 2. Exposes methods (activate, deactivate, subscribe) as vi.fn()
 // 3. Allows us to manually trigger callbacks in tests
+//
+// Uses vi.hoisted() — the documented, guaranteed-safe way to share values
+// between a vi.mock() factory and the test body, since vi.mock() calls are
+// hoisted above all other module code. This was tried as a fix for
+// intermittent all-or-nothing failures of every test depending on these
+// mocks (~30-50% of runs, identical 17 failures every time) — it did NOT
+// fix it; the failures persisted with byte-identical symptoms. The actual
+// root cause was `.angular/cache`: the experimental @angular/build:unit-test
+// builder's persistent build cache was intermittently serving a stale
+// bundle of this spec file. Disabling it (cli.cache.enabled: false in
+// angular.json) made the flakiness disappear across 12/12 consecutive runs
+// after 0/12 clean runs beforehand. Kept vi.hoisted() anyway since it's
+// still the more correct pattern than ordinary outer `let` bindings, even
+// though it wasn't the fix for this particular bug.
+const hoisted = vi.hoisted(() => ({
+  mockActivate: vi.fn(),
+  mockDeactivate: vi.fn(),
+  mockSubscribe: vi.fn(),
+  mockUnsubscribe: vi.fn(),
+  callbacks: {
+    onConnect: undefined as (() => void) | undefined,
+    onDisconnect: undefined as (() => void) | undefined,
+  },
+}));
 
-let capturedOnConnect: (() => void) | undefined;
-let capturedOnDisconnect: (() => void) | undefined;
-let mockActivate: ReturnType<typeof vi.fn>;
-let mockDeactivate: ReturnType<typeof vi.fn>;
-let mockSubscribe: ReturnType<typeof vi.fn>;
-let mockUnsubscribe: ReturnType<typeof vi.fn>;
+const { mockActivate, mockDeactivate, mockSubscribe, mockUnsubscribe, callbacks } = hoisted;
 
 // Typed interfaces for the STOMP mock — no `any` needed.
 interface MockStompConfig {
@@ -42,11 +61,11 @@ interface MockStompClient {
 vi.mock('@stomp/stompjs', () => {
   return {
     Client: function MockClient(this: MockStompClient, config: MockStompConfig) {
-      capturedOnConnect = config.onConnect;
-      capturedOnDisconnect = config.onDisconnect;
-      this.activate = mockActivate;
-      this.deactivate = mockDeactivate;
-      this.subscribe = mockSubscribe;
+      hoisted.callbacks.onConnect = config.onConnect;
+      hoisted.callbacks.onDisconnect = config.onDisconnect;
+      this.activate = hoisted.mockActivate;
+      this.deactivate = hoisted.mockDeactivate;
+      this.subscribe = hoisted.mockSubscribe;
     },
   };
 });
@@ -128,12 +147,13 @@ describe('WebSocketService', () => {
   };
 
   beforeEach(() => {
-    capturedOnConnect = undefined;
-    capturedOnDisconnect = undefined;
-    mockActivate = vi.fn();
-    mockDeactivate = vi.fn();
-    mockUnsubscribe = vi.fn();
-    mockSubscribe = vi.fn().mockReturnValue({ unsubscribe: mockUnsubscribe });
+    callbacks.onConnect = undefined;
+    callbacks.onDisconnect = undefined;
+    mockActivate.mockClear();
+    mockDeactivate.mockClear();
+    mockUnsubscribe.mockClear();
+    mockSubscribe.mockClear();
+    mockSubscribe.mockReturnValue({ unsubscribe: mockUnsubscribe });
 
     mockAuthService = {
       getToken: vi.fn().mockReturnValue('valid-jwt-token'),
@@ -222,7 +242,7 @@ describe('WebSocketService', () => {
 
     it('does not connect again when already CONNECTED', () => {
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       service.connect();
 
@@ -247,19 +267,19 @@ describe('WebSocketService', () => {
     });
 
     it('sets state to CONNECTED when onConnect fires', () => {
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       expect(service.connectionState()).toBe('CONNECTED');
     });
 
     it('isConnected returns true after connection', () => {
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       expect(service.isConnected()).toBe(true);
     });
 
     it('subscribes to /topic/incidents after connection', () => {
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       expect(mockSubscribe).toHaveBeenCalledWith(
         '/topic/incidents/acme-corp',
@@ -275,7 +295,7 @@ describe('WebSocketService', () => {
   describe('disconnect', () => {
     it('sets state to DISCONNECTED', () => {
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
       expect(service.connectionState()).toBe('CONNECTED');
 
       service.disconnect();
@@ -285,7 +305,7 @@ describe('WebSocketService', () => {
 
     it('isConnected returns false after disconnect', () => {
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       service.disconnect();
 
@@ -308,12 +328,12 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+      mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
     });
 
     it('calls incidentService.addIncident for CREATED event', () => {
@@ -354,12 +374,12 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+      mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
     });
 
     it('calls incidentService.updateIncident for UPDATED event', () => {
@@ -405,12 +425,12 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+      mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
     });
 
     it('calls incidentService.updateIncident for INCIDENT_UPDATED event', () => {
@@ -455,12 +475,12 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+      mockSubscribe.mockImplementation = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
     });
 
     it('does not throw when message body is invalid JSON', () => {
@@ -493,10 +513,10 @@ describe('WebSocketService', () => {
     it('sets state to RECONNECTING when connection drops unexpectedly', () => {
       vi.useFakeTimers();
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
       expect(service.connectionState()).toBe('CONNECTED');
 
-      capturedOnDisconnect?.();
+      callbacks.onDisconnect?.();
 
       expect(service.isReconnecting()).toBe(true);
     });
@@ -507,8 +527,8 @@ describe('WebSocketService', () => {
       mockAuthService.isAuthenticated.mockReturnValue(false);
 
       service.connect();
-      capturedOnConnect?.();
-      capturedOnDisconnect?.();
+      callbacks.onConnect?.();
+      callbacks.onDisconnect?.();
 
       vi.advanceTimersByTime(1500);
 
@@ -518,11 +538,11 @@ describe('WebSocketService', () => {
     it('does not reconnect after explicit disconnect()', () => {
       vi.useFakeTimers();
       service.connect();
-      capturedOnConnect?.();
+      callbacks.onConnect?.();
 
       service.disconnect();
 
-      capturedOnDisconnect?.();
+      callbacks.onDisconnect?.();
 
       vi.advanceTimersByTime(2000);
 

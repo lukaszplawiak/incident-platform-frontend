@@ -32,7 +32,7 @@ function buildPage(
     totalElements: users.length,
     totalPages: 1,
     size: 20,
-    number: 0,
+    page: 0,
     first: true,
     last: true,
     ...overrides,

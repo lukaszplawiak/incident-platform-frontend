@@ -1,0 +1,268 @@
+<div class="admin-page">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">On-Call</h1>
+      <p class="admin-subtitle">{{ totalElements() }} schedule entr{{ totalElements() === 1 ? 'y' : 'ies' }}</p>
+    </div>
+    @if (isAdmin()) {
+      <button class="btn btn--primary" (click)="openCreateForm()">
+        + Add schedule
+      </button>
+    }
+  </div>
+
+  <!-- ── Currently on-call (ADMIN only) ────────────────────────────────── -->
+  @if (isAdmin()) {
+    <div class="current-oncall">
+      <h2 class="section-title">Currently on-call</h2>
+      @if (currentOncallLoading()) {
+        <div class="loading-state">Loading...</div>
+      } @else if (currentOncall().length === 0) {
+        <div class="empty-state empty-state--compact">No one is currently on call.</div>
+      } @else {
+        <div class="current-oncall-grid">
+          @for (current of currentOncall(); track trackByUserId($index, current)) {
+            <div class="current-card">
+              <span class="role-badge" [class]="'role-badge--' + current.role.toLowerCase()">
+                {{ current.role }}
+              </span>
+              <div class="current-card__name">{{ current.userName }}</div>
+              <div class="current-card__email">{{ current.email }}</div>
+              <div class="current-card__meta">
+                Shift ends {{ current.shiftEndsAt | date:'dd MMM, HH:mm' }}
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ── Schedules table ────────────────────────────────────────────────── -->
+  <h2 class="section-title">Schedule</h2>
+
+  @if (loading()) {
+    <div class="loading-state">Loading schedules...</div>
+  } @else if (schedules().length === 0) {
+    <div class="empty-state">
+      No on-call schedule entries yet.
+      @if (isAdmin()) { Add the first one to configure who gets notified during an incident. }
+    </div>
+  } @else {
+    <table class="table" aria-label="On-call schedule">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Team</th>
+          <th>Starts</th>
+          <th>Ends</th>
+          <th>Notes</th>
+          @if (isAdmin()) { <th class="col-actions">Actions</th> }
+        </tr>
+      </thead>
+      <tbody>
+        @for (schedule of schedules(); track trackByScheduleId($index, schedule)) {
+          <tr>
+            <td>
+              <div class="cell-email">{{ schedule.userName }}</div>
+              <div class="cell-subtext">{{ schedule.email }}</div>
+            </td>
+            <td>
+              <span class="role-badge" [class]="'role-badge--' + schedule.role.toLowerCase()">
+                {{ schedule.role }}
+              </span>
+            </td>
+            <td>{{ teamName(schedule.teamId) }}</td>
+            <td class="cell-date">{{ schedule.startsAt | date:'dd MMM yyyy, HH:mm' }}</td>
+            <td class="cell-date">{{ schedule.endsAt | date:'dd MMM yyyy, HH:mm' }}</td>
+            <td class="cell-notes">{{ schedule.notes || '—' }}</td>
+            @if (isAdmin()) {
+              <td class="cell-actions">
+                @if (confirmingDelete() === schedule.id) {
+                  <span class="confirm-text">Delete?</span>
+                  <button class="action-btn action-btn--danger" (click)="deleteSchedule(schedule)">Yes</button>
+                  <button class="action-btn" (click)="cancelDelete()">No</button>
+                } @else {
+                  <button
+                    class="action-btn action-btn--danger"
+                    title="Delete schedule"
+                    (click)="confirmDelete(schedule.id)">
+                    Delete
+                  </button>
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <!-- ── Pagination ────────────────────────────────────────────────── -->
+    @if (totalPages > 1) {
+      <div class="pagination">
+        <button
+          class="page-btn"
+          [disabled]="currentPage() === 0"
+          (click)="goToPage(currentPage() - 1)">
+          ← Previous
+        </button>
+        <span class="page-info">
+          Page {{ currentPage() + 1 }} of {{ totalPages }}
+        </span>
+        <button
+          class="page-btn"
+          [disabled]="currentPage() === totalPages - 1"
+          (click)="goToPage(currentPage() + 1)">
+          Next →
+        </button>
+      </div>
+    }
+  }
+
+  <!-- ── Create schedule modal ─────────────────────────────────────────── -->
+  @if (showCreateForm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close modal"
+      (click)="closeCreateForm()"
+      (keydown.escape)="closeCreateForm()"
+      (keyup.enter)="closeCreateForm()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-schedule-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <div class="modal-header">
+          <h2 id="create-schedule-title" class="modal-title">Add on-call schedule</h2>
+          <button class="modal-close" aria-label="Close" (click)="closeCreateForm()">✕</button>
+        </div>
+
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-user">User</label>
+            <select
+              id="oncall-user"
+              class="form-input"
+              [class.form-input--error]="hasCreateError('userId', 'required')"
+              formControlName="userId"
+              (change)="onUserChange($any($event.target).value)">
+              <option value="">— Select user —</option>
+              @for (user of allUsers(); track user.id) {
+                <option [value]="user.id">{{ user.email }}</option>
+              }
+            </select>
+            @if (hasCreateError('userId', 'required')) {
+              <span class="form-error">User is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-username">Display name</label>
+            <input
+              id="oncall-username"
+              type="text"
+              class="form-input"
+              [class.form-input--error]="hasCreateError('userName', 'required')"
+              formControlName="userName"
+              placeholder="e.g. Jan Kowalski">
+            @if (hasCreateError('userName', 'required')) {
+              <span class="form-error">Display name is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-team">Team (optional)</label>
+            <select id="oncall-team" class="form-input" formControlName="teamId">
+              <option value="">— Tenant-wide (no team) —</option>
+              @for (team of allTeams(); track team.id) {
+                <option [value]="team.id">{{ team.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-role">Role</label>
+            <select id="oncall-role" class="form-input" formControlName="role">
+              @for (role of oncallRoles; track role) {
+                <option [value]="role">{{ role }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="oncall-starts">Starts</label>
+              <input
+                id="oncall-starts"
+                type="datetime-local"
+                class="form-input"
+                [class.form-input--error]="hasCreateError('startsAt', 'required') || hasDateRangeError()"
+                formControlName="startsAt">
+              @if (hasCreateError('startsAt', 'required')) {
+                <span class="form-error">Start time is required</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="oncall-ends">Ends</label>
+              <input
+                id="oncall-ends"
+                type="datetime-local"
+                class="form-input"
+                [class.form-input--error]="hasCreateError('endsAt', 'required') || hasDateRangeError()"
+                formControlName="endsAt">
+              @if (hasCreateError('endsAt', 'required')) {
+                <span class="form-error">End time is required</span>
+              } @else if (hasDateRangeError()) {
+                <span class="form-error">End time must be after start time</span>
+              }
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-phone">Phone (optional)</label>
+            <input id="oncall-phone" type="tel" class="form-input" formControlName="phone" placeholder="+48100200300">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-slack">Slack user ID (optional)</label>
+            <input id="oncall-slack" type="text" class="form-input" formControlName="slackUserId" placeholder="U0123456789">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="oncall-notes">Notes (optional)</label>
+            <textarea
+              id="oncall-notes"
+              class="form-input form-textarea"
+              formControlName="notes"
+              placeholder="Anything the responder should know">
+            </textarea>
+            @if (hasCreateError('notes', 'maxlength')) {
+              <span class="form-error">Notes must not exceed 1000 characters</span>
+            }
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn--secondary" (click)="closeCreateForm()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="createLoading()">
+              @if (createLoading()) { Creating... } @else { Add schedule }
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  }
+
+</div>

@@ -121,5 +121,14 @@ export const routes: Routes = [
   {
     path: '**',
     redirectTo: '/incidents'
-  }
+  },
+
+  {
+    path: 'mfa-settings',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/account/mfa-settings/mfa-settings')
+        .then(m => m.MfaSettings),
+    title: 'Account Security — Incident Platform'
+  },
 ];

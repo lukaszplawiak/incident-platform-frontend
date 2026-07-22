@@ -17,6 +17,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     roles: ['ROLE_RESPONDER'],
     teamIds: [],
     active: true,
+    mfaEnabled: false,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     ...overrides,

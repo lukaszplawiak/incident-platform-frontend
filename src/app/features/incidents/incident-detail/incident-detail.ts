@@ -3,11 +3,14 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { IncidentService } from '../../../core/services/incident.service';
+import { TeamService } from '../../../core/services/team.service';
 import { LoggerService } from '../../../core/services/logger.service';
 import { SeverityBadge } from '../../../shared/components/severity-badge/severity-badge';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { EscalationBadge } from '../../../shared/components/escalation-badge/escalation-badge';
 import { UpdateStatusRequest } from '../../../core/models/incident.model';
+import { Team } from '../../../core/models/team.model';
+import { formatDurationMinutes } from '../../../shared/utils/format-duration';
 import { IncidentAudit } from '../incident-audit/incident-audit';
 import { IncidentPostmortem } from '../incident-postmortem/incident-postmortem';
 
@@ -23,6 +26,7 @@ export class IncidentDetail implements OnInit {
   readonly id = input.required<string>();
 
   private readonly incidentService = inject(IncidentService);
+  private readonly teamService = inject(TeamService);
   private readonly router = inject(Router);
   private readonly logger = inject(LoggerService);
 
@@ -34,12 +38,19 @@ export class IncidentDetail implements OnInit {
   readonly postmortem = this.incidentService.postmortem;
   readonly postmortemLoading = this.incidentService.postmortemLoading;
 
+  /** For resolving incident.teamId to a display name — see teamName(). */
+  private allTeams: Team[] = [];
+
   ngOnInit(): void {
     const id = this.id();
     this.logger.info('Loading incident detail', { id });
     this.incidentService.loadIncident(id);
     this.incidentService.loadAuditLog(id);
     this.incidentService.loadPostmortem(id);
+    this.teamService.listTeams().subscribe({
+      next: teams => { this.allTeams = teams; },
+      error: () => { /* non-critical — team name falls back to "—" */ }
+    });
   }
 
   onAcknowledge(): void {
@@ -67,45 +78,39 @@ export class IncidentDetail implements OnInit {
   get canAcknowledge(): boolean {
     const inc = this.incident();
     if (!inc) return false;
-    if (inc.allowedTransitions) {
-      return inc.allowedTransitions.includes('ACKNOWLEDGED');
-    }
-    // Fallback only applies when the backend didn't send allowedTransitions.
-    // escalationLevel no longer affects this — an escalated incident can be
-    // ACKNOWLEDGED regardless of its level.
-    return inc.status === 'OPEN';
+    return inc.allowedTransitions.includes('ACKNOWLEDGED');
   }
 
   get canResolve(): boolean {
     const inc = this.incident();
     if (!inc) return false;
-    if (inc.allowedTransitions) {
-      return inc.allowedTransitions.includes('RESOLVED');
-    }
-    return inc.status === 'ACKNOWLEDGED';
+    return inc.allowedTransitions.includes('RESOLVED');
   }
 
   get canClose(): boolean {
     const inc = this.incident();
     if (!inc) return false;
-    if (inc.allowedTransitions) {
-      return inc.allowedTransitions.includes('CLOSED');
-    }
-    return inc.status === 'RESOLVED';
+    return inc.allowedTransitions.includes('CLOSED');
   }
 
   get duration(): string {
     const inc = this.incident();
     if (!inc) return '-';
 
-    const start = new Date(inc.openedAt);
+    const start = new Date(inc.createdAt);
     const end = inc.resolvedAt ? new Date(inc.resolvedAt) : new Date();
-    const diffMs = end.getTime() - start.getTime();
-    const minutes = Math.floor(diffMs / 60_000);
+    const diffMinutes = (end.getTime() - start.getTime()) / 60_000;
 
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    return formatDurationMinutes(diffMinutes);
+  }
+
+  /** MTTA/MTTR arrive from the backend already in minutes — just format. */
+  formatMinutes(minutes: number): string {
+    return formatDurationMinutes(minutes);
+  }
+
+  teamName(teamId: string | null): string {
+    if (!teamId) return '—';
+    return this.allTeams.find(t => t.id === teamId)?.name ?? '—';
   }
 }

@@ -20,17 +20,18 @@ function buildIncident(overrides: Partial<Incident> = {}): Incident {
     tenantId: 'acme-corp',
     source: 'prometheus',
     sourceType: 'OPS',
-    fingerprint: 'fp-001',
     alertId: 'alert-001',
-    openedAt: '2026-01-01T00:00:00Z',
+    teamId: null,
+    alertFiredAt: '2026-01-01T00:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
     acknowledgedAt: null,
     resolvedAt: null,
     closedAt: null,
-    mttaSeconds: null,
-    mttrSeconds: null,
+    mttaMinutes: null,
+    mttrMinutes: null,
     assignedTo: null,
     escalationLevel: 0,
-    version: 1,
+    allowedTransitions: ['ACKNOWLEDGED'],
     ...overrides,
   };
 }
@@ -469,7 +470,6 @@ describe('IncidentService', () => {
         id: 'i-1',
         status: 'ACKNOWLEDGED',
         acknowledgedAt: '2026-01-01T01:00:00Z',
-        version: 2,
       });
       httpMock.expectOne(`${API_URL}/i-1/status`).flush(serverResponse);
 

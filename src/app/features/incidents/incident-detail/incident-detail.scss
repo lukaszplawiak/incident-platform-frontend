@@ -134,18 +134,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-
-  &__meta-value {
-    font-size: 14px;
-    color: #e2e8f0;
-
-    &--mono {
-      font-family: monospace;
-      font-size: 12px;
-      color: #a0aec0;
-      word-break: break-all;
-    }
-  }
+    
 }
 
 @keyframes spin {

@@ -21,6 +21,9 @@ import {
   MfaVerifyBackupRequest,
   MfaBackupCodesStatus,
   JwtPayload,
+  MfaEnableWithLoginResponse,
+  MfaEnableRequiredRequest,
+  MfaSetupRequiredRequest,
 } from '../models/auth.model';
 
 @Injectable({
@@ -392,6 +395,46 @@ export class AuthService {
       tap(response => {
         if (response.accessToken && response.refreshToken) {
           this.storeTokens(response.accessToken, response.refreshToken);
+        }
+      })
+    );
+  }
+  /**
+   * POST /api/v1/auth/mfa/setup-required
+   *
+   * Tenant-required-MFA login flow — called when login returned
+   * mfaSetupRequired=true. Identifies the user via mfaSetupToken instead
+   * of a Bearer token (none exists yet, login hasn't completed). Public
+   * endpoint. May be called more than once (e.g. to get a fresh QR) —
+   * the backend doesn't consume the token here, only in
+   * completeMfaSetupRequired().
+   */
+  setupMfaRequired(request: MfaSetupRequiredRequest): Observable<MfaSetupResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/setup-required`;
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<MfaSetupResponse>(url, request, { context });
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/enable-required
+   *
+   * Confirms setup with the first TOTP code, consumes the (single-use)
+   * mfaSetupToken, and — since the whole point of this flow is that login
+   * was blocked pending MFA configuration — completes login. Stores the
+   * returned access/refresh tokens exactly like verifyMfa/verifyMfaBackup.
+   */
+  completeMfaSetupRequired(
+    request: MfaEnableRequiredRequest
+  ): Observable<MfaEnableWithLoginResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/enable-required`;
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<MfaEnableWithLoginResponse>(url, request, { context }).pipe(
+      tap(response => {
+        const { accessToken, refreshToken } = response.login;
+        if (accessToken && refreshToken) {
+          this.storeTokens(accessToken, refreshToken);
         }
       })
     );

@@ -30,6 +30,9 @@ export interface LoginResponse {
   mfaRequired: boolean;
   mfaToken: string | null;
   mfaExpiresAt: string | null;
+  mfaSetupRequired: boolean;
+  mfaSetupToken: string | null;
+  mfaSetupExpiresAt: string | null;
 }
 
 /**
@@ -163,4 +166,36 @@ export interface MfaVerifyBackupRequest {
 export interface MfaBackupCodesStatus {
   remainingCodes: number;
   mfaEnabledAt: string;
+}
+/**
+ * Request body for POST /api/v1/auth/mfa/setup-required.
+ *
+ * Tenant-required-MFA login flow: the user has no access token (login was
+ * blocked pending MFA setup — see LoginResponse.mfaSetupRequired), so the
+ * mfaSetupToken from that response identifies them instead of a Bearer
+ * token. Public endpoint like verifyMfa/verifyMfaBackup.
+ */
+export interface MfaSetupRequiredRequest {
+  mfaSetupToken: string;
+}
+
+/**
+ * Request body for POST /api/v1/auth/mfa/enable-required.
+ * Same mfaSetupToken as MfaSetupRequiredRequest, plus the confirmation code.
+ */
+export interface MfaEnableRequiredRequest {
+  mfaSetupToken: string;
+  totpCode: string;
+}
+
+/**
+ * Response from POST /api/v1/auth/mfa/enable-required.
+ *
+ * Bundles the same one-time backup codes as MfaEnableResponse with a
+ * completed LoginResponse — this call both enables MFA *and* finishes the
+ * login that was blocked pending setup.
+ */
+export interface MfaEnableWithLoginResponse {
+  backupCodes: string[];
+  login: LoginResponse;
 }

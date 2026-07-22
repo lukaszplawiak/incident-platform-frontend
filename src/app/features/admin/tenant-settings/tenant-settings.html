@@ -1,0 +1,82 @@
+<div class="admin-page">
+
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">Tenant Settings</h1>
+      <p class="admin-subtitle">Organisation-wide configuration</p>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">Loading...</div>
+  } @else {
+
+    <div class="card">
+      <div class="card__row">
+        <div class="card__row-text">
+          <h2 class="card__title">Require two-factor authentication</h2>
+          <p class="card__text">
+            When enabled, every user in this tenant must have MFA configured
+            to sign in. Users without it are guided through setup at their
+            next login before they can access anything else.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="toggle"
+          [class.toggle--on]="mfaRequired()"
+          [disabled]="saving()"
+          role="switch"
+          [attr.aria-checked]="mfaRequired()"
+          aria-label="Require two-factor authentication"
+          (click)="onToggleClick()">
+          <span class="toggle__thumb"></span>
+        </button>
+      </div>
+
+      <p class="card__status">
+        Currently: <strong>{{ mfaRequired() ? 'Required for all users' : 'Optional (default)' }}</strong>
+      </p>
+    </div>
+
+  }
+
+  @if (showEnableConfirm()) {
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close dialog"
+      (click)="cancelEnable()"
+      (keydown.escape)="cancelEnable()"
+      (keyup.enter)="cancelEnable()">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()">
+
+        <h2 id="confirm-title" class="modal-title">Require MFA for all users?</h2>
+        <p class="modal-text">
+          Any user without MFA already configured will be blocked from
+          normal login and required to set it up first, starting with their
+          very next sign-in attempt. This applies immediately and
+          tenant-wide — it can't be scoped to specific users.
+        </p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn--secondary" (click)="cancelEnable()">
+            Cancel
+          </button>
+          <button type="button" class="btn btn--primary" (click)="confirmEnable()">
+            Yes, require MFA for everyone
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

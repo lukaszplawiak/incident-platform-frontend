@@ -68,6 +68,33 @@ function successLoginResponse(accessToken: string): LoginResponse {
     mfaRequired: false,
     mfaToken: null,
     mfaExpiresAt: null,
+    mfaSetupRequired: false,
+    mfaSetupToken: null,
+    mfaSetupExpiresAt: null,
+  };
+}
+
+/**
+ * Builds an MFA-setup-required LoginResponse — tenant requires MFA, user
+ * has none configured yet. Mirrors LoginResponse.mfaSetupRequired() from
+ * auth-service.
+ */
+function mfaSetupRequiredLoginResponse(): LoginResponse {
+  return {
+    accessToken: null,
+    refreshToken: null,
+    userId: null,
+    tenantId: null,
+    email: null,
+    roles: null,
+    accessExpiresAt: null,
+    refreshExpiresAt: null,
+    mfaRequired: false,
+    mfaToken: null,
+    mfaExpiresAt: null,
+    mfaSetupRequired: true,
+    mfaSetupToken: 'fake-mfa-setup-token',
+    mfaSetupExpiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   };
 }
 
@@ -88,6 +115,9 @@ function mfaRequiredLoginResponse(): LoginResponse {
     mfaRequired: true,
     mfaToken: 'fake-mfa-session-token',
     mfaExpiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    mfaSetupRequired: false,
+    mfaSetupToken: null,
+    mfaSetupExpiresAt: null,
   };
 }
 

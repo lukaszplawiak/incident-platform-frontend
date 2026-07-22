@@ -5,10 +5,7 @@
     "packageManager": "npm",
     "schematicCollections": [
       "angular-eslint"
-    ],
-    "cache": {
-      "enabled": false
-    }
+    ]
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -35,11 +32,12 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.scss"],
+            "styles": [
+              "src/styles.scss"
+            ],
             "allowedCommonJsDependencies": [
               "@stomp/stompjs"
             ]
-
           },
           "configurations": {
             "production": {
@@ -92,7 +90,10 @@
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
           }
         }
       }

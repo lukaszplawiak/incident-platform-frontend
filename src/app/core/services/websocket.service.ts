@@ -1,11 +1,12 @@
 import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import type { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { timer } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { IncidentService } from './incident.service';
 import { LoggerService } from './logger.service';
+import { StompClientFactory } from './stomp-client-factory';
 import { IncidentWebSocketEvent } from '../models/incident.model';
 import { ToastService } from '../../shared/components/toast/toast.service';
 
@@ -25,6 +26,7 @@ export class WebSocketService {
   private readonly logger = inject(LoggerService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
+  private readonly stompClientFactory = inject(StompClientFactory);
 
   private readonly _connectionState = signal<ConnectionState>('DISCONNECTED');
   readonly connectionState = this._connectionState.asReadonly();
@@ -63,7 +65,7 @@ export class WebSocketService {
   }
 
   private createAndActivateClient(token: string): void {
-    this.stompClient = new Client({
+    this.stompClient = this.stompClientFactory.create({
       brokerURL: environment.wsUrl,
       connectHeaders: {
         Authorization: `Bearer ${token}`

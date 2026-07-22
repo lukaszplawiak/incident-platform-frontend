@@ -6,69 +6,34 @@ import { AuthService } from './auth.service';
 import { IncidentService } from './incident.service';
 import { LoggerService } from './logger.service';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { StompClientFactory } from './stomp-client-factory';
 import { IMessage } from '@stomp/stompjs';
 import { Incident, IncidentWebSocketEvent } from '../models/incident.model';
 
-// ─── Mock STOMP Client ────────────────────────────────────────────────────────
+// ─── Fake STOMP client ────────────────────────────────────────────────────────
 //
-// @stomp/stompjs uses `new Client(config)` — the mock must be a class or
-// a regular function (not an arrow function) so it can work as a constructor.
+// WebSocketService gets its STOMP Client through an injected
+// StompClientFactory rather than calling `new Client(...)` directly (see
+// stomp-client-factory.ts for why). That means faking it here is a plain
+// TestBed provider — { provide: StompClientFactory, useValue: ... } — the
+// exact same mechanism already used below for AuthService/IncidentService/
+// LoggerService/ToastService, none of which have ever shown flakiness
+// across this investigation. No vi.mock(), no module interception, no
+// vi.hoisted() needed: mockActivate/mockDeactivate/mockSubscribe are
+// ordinary `let` bindings reassigned fresh in beforeEach, just like every
+// other mock in this file.
 //
-// Approach: we mock the module with a MockClient class that:
-// 1. Captures callbacks (onConnect, onDisconnect) from the config
-// 2. Exposes methods (activate, deactivate, subscribe) as vi.fn()
-// 3. Allows us to manually trigger callbacks in tests
-//
-// Uses vi.hoisted() — the documented, guaranteed-safe way to share values
-// between a vi.mock() factory and the test body, since vi.mock() calls are
-// hoisted above all other module code. This was tried as a fix for
-// intermittent all-or-nothing failures of every test depending on these
-// mocks (~30-50% of runs, identical 17 failures every time) — it did NOT
-// fix it; the failures persisted with byte-identical symptoms. The actual
-// root cause was `.angular/cache`: the experimental @angular/build:unit-test
-// builder's persistent build cache was intermittently serving a stale
-// bundle of this spec file. Disabling it (cli.cache.enabled: false in
-// angular.json) made the flakiness disappear across 12/12 consecutive runs
-// after 0/12 clean runs beforehand. Kept vi.hoisted() anyway since it's
-// still the more correct pattern than ordinary outer `let` bindings, even
-// though it wasn't the fix for this particular bug.
-const hoisted = vi.hoisted(() => ({
-  mockActivate: vi.fn(),
-  mockDeactivate: vi.fn(),
-  mockSubscribe: vi.fn(),
-  mockUnsubscribe: vi.fn(),
-  callbacks: {
-    onConnect: undefined as (() => void) | undefined,
-    onDisconnect: undefined as (() => void) | undefined,
-  },
-}));
-
-const { mockActivate, mockDeactivate, mockSubscribe, mockUnsubscribe, callbacks } = hoisted;
-
-// Typed interfaces for the STOMP mock — no `any` needed.
-interface MockStompConfig {
-  onConnect: () => void;
-  onDisconnect: () => void;
-  onStompError?: () => void;
-}
-
-interface MockStompClient {
-  activate: ReturnType<typeof vi.fn>;
-  deactivate: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-}
-
-vi.mock('@stomp/stompjs', () => {
-  return {
-    Client: function MockClient(this: MockStompClient, config: MockStompConfig) {
-      hoisted.callbacks.onConnect = config.onConnect;
-      hoisted.callbacks.onDisconnect = config.onDisconnect;
-      this.activate = hoisted.mockActivate;
-      this.deactivate = hoisted.mockDeactivate;
-      this.subscribe = hoisted.mockSubscribe;
-    },
-  };
-});
+// Previously this mocked '@stomp/stompjs' via vi.mock() with a MockClient
+// class assigned to `this.activate = mockActivate` etc. That approach
+// produced three different, unreproducible flakiness symptoms across three
+// environments (a local sandbox, a real watch-mode session, and GitHub
+// Actions CI) despite several rounds of hardening (vi.hoisted(),
+// vi.resetAllMocks(), explicit TestBed.resetTestingModule(), disabling the
+// Angular CLI build cache). None of it eliminated it, because none of it
+// addressed the actual point of fragility: intercepting a third-party
+// module's constructor via the bundler/test-runner integration, in an
+// environment (@angular/build:unit-test) too new and too under-documented
+// to fully audit. Removing that dependency entirely is the fix.
 
 // ─── Test data ────────────────────────────────────────────────────────────────
 
@@ -146,36 +111,35 @@ describe('WebSocketService', () => {
     error: ReturnType<typeof vi.fn>;
   };
 
-  beforeEach(() => {
-    // TestBed.resetTestingModule() first, explicitly — belt-and-suspenders
-    // against a long-lived watch-mode process not fully tearing down the
-    // previous test's injector before this test's TestBed.configureTestingModule()
-    // call below. Angular's own test harness is supposed to handle this
-    // automatically between tests, but the failure this guards against
-    // (mockLogger.warn asserted with 0 calls, while WebSocketService's
-    // catch block that calls it definitely ran) is exactly the symptom of
-    // service.logger still pointing at a *previous* test's mockLogger
-    // instance rather than the one just configured — i.e. a stale
-    // TestBed-scoped instance of the WebSocketService singleton surviving
-    // across supposedly-isolated tests. Calling this explicitly costs
-    // nothing when the framework's own teardown already worked correctly,
-    // and closes the gap when it didn't.
-    TestBed.resetTestingModule();
-    
-    // vi.resetAllMocks() instead of individually clearing each hoisted mock:
-    // belt-and-suspenders against exactly the kind of stale-state leakage
-    // watch mode surfaced (see the comment above the STOMP mock setup).
-    // resetAllMocks() clears call history AND wipes any
-    // mockImplementation/mockReturnValue left over from whatever the
-    // previous test — or a previous watch-mode rerun of this same
-    // long-lived process — configured on these mocks, so every test starts
-    // from a guaranteed-clean slate rather than relying on each test/nested
-    // beforeEach to correctly override the last one's configuration.
-    vi.resetAllMocks();
+  let mockActivate: ReturnType<typeof vi.fn>;
+  let mockDeactivate: ReturnType<typeof vi.fn>;
+  let mockSubscribe: ReturnType<typeof vi.fn>;
+  let mockUnsubscribe: ReturnType<typeof vi.fn>;
+  let mockStompClientFactory: { create: ReturnType<typeof vi.fn> };
+  let capturedOnConnect: (() => void) | undefined;
+  let capturedOnDisconnect: (() => void) | undefined;
 
-    callbacks.onConnect = undefined;
-    callbacks.onDisconnect = undefined;
-    mockSubscribe.mockReturnValue({ unsubscribe: mockUnsubscribe });
+  beforeEach(() => {
+    capturedOnConnect = undefined;
+    capturedOnDisconnect = undefined;
+    mockActivate = vi.fn();
+    mockDeactivate = vi.fn();
+    mockUnsubscribe = vi.fn();
+    mockSubscribe = vi.fn().mockReturnValue({ unsubscribe: mockUnsubscribe });
+
+    mockStompClientFactory = {
+      create: vi.fn().mockImplementation(
+        (config: { onConnect: () => void; onDisconnect: () => void }) => {
+          capturedOnConnect = config.onConnect;
+          capturedOnDisconnect = config.onDisconnect;
+          return {
+            activate: mockActivate,
+            deactivate: mockDeactivate,
+            subscribe: mockSubscribe,
+          };
+        }
+      ),
+    };
 
     mockAuthService = {
       getToken: vi.fn().mockReturnValue('valid-jwt-token'),
@@ -208,6 +172,7 @@ describe('WebSocketService', () => {
         { provide: IncidentService, useValue: mockIncidentService },
         { provide: LoggerService, useValue: mockLogger },
         { provide: ToastService, useValue: mockToast },
+        { provide: StompClientFactory, useValue: mockStompClientFactory },
       ],
     });
 
@@ -264,7 +229,7 @@ describe('WebSocketService', () => {
 
     it('does not connect again when already CONNECTED', () => {
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       service.connect();
 
@@ -289,19 +254,19 @@ describe('WebSocketService', () => {
     });
 
     it('sets state to CONNECTED when onConnect fires', () => {
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       expect(service.connectionState()).toBe('CONNECTED');
     });
 
     it('isConnected returns true after connection', () => {
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       expect(service.isConnected()).toBe(true);
     });
 
     it('subscribes to /topic/incidents after connection', () => {
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       expect(mockSubscribe).toHaveBeenCalledWith(
         '/topic/incidents/acme-corp',
@@ -317,7 +282,7 @@ describe('WebSocketService', () => {
   describe('disconnect', () => {
     it('sets state to DISCONNECTED', () => {
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
       expect(service.connectionState()).toBe('CONNECTED');
 
       service.disconnect();
@@ -327,7 +292,7 @@ describe('WebSocketService', () => {
 
     it('isConnected returns false after disconnect', () => {
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       service.disconnect();
 
@@ -363,7 +328,7 @@ describe('WebSocketService', () => {
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
     });
 
     it('calls incidentService.addIncident for CREATED event', () => {
@@ -404,12 +369,20 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
+      // Explicit reset before re-wiring — messageHandler is plain test
+      // state (not a vi.fn()), so vi.resetAllMocks() in the outer
+      // beforeEach does not touch it. Without this, a stale handler from
+      // a previous test could theoretically survive if service.connect()
+      // ever failed to re-subscribe for any reason, silently calling into
+      // a mismatched mockLogger/mockIncidentService instance instead of
+      // the current test's.
+      messageHandler = undefined;
       mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
     });
 
     it('calls incidentService.updateIncident for UPDATED event', () => {
@@ -455,12 +428,20 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
+      // Explicit reset before re-wiring — messageHandler is plain test
+      // state (not a vi.fn()), so vi.resetAllMocks() in the outer
+      // beforeEach does not touch it. Without this, a stale handler from
+      // a previous test could theoretically survive if service.connect()
+      // ever failed to re-subscribe for any reason, silently calling into
+      // a mismatched mockLogger/mockIncidentService instance instead of
+      // the current test's.
+      messageHandler = undefined;
       mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
     });
 
     it('calls incidentService.updateIncident for INCIDENT_UPDATED event', () => {
@@ -505,12 +486,20 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
-      mockSubscribe.mockImplementation = vi.fn().mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
+      // Explicit reset before re-wiring — messageHandler is plain test
+      // state (not a vi.fn()), so vi.resetAllMocks() in the outer
+      // beforeEach does not touch it. Without this, a stale handler from
+      // a previous test could theoretically survive if service.connect()
+      // ever failed to re-subscribe for any reason, silently calling into
+      // a mismatched mockLogger/mockIncidentService instance instead of
+      // the current test's.
+      messageHandler = undefined;
+      mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };
       });
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
     });
 
     it('does not throw when message body is invalid JSON', () => {
@@ -543,10 +532,10 @@ describe('WebSocketService', () => {
     it('sets state to RECONNECTING when connection drops unexpectedly', () => {
       vi.useFakeTimers();
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
       expect(service.connectionState()).toBe('CONNECTED');
 
-      callbacks.onDisconnect?.();
+      capturedOnDisconnect?.();
 
       expect(service.isReconnecting()).toBe(true);
     });
@@ -557,8 +546,8 @@ describe('WebSocketService', () => {
       mockAuthService.isAuthenticated.mockReturnValue(false);
 
       service.connect();
-      callbacks.onConnect?.();
-      callbacks.onDisconnect?.();
+      capturedOnConnect?.();
+      capturedOnDisconnect?.();
 
       vi.advanceTimersByTime(1500);
 
@@ -568,11 +557,11 @@ describe('WebSocketService', () => {
     it('does not reconnect after explicit disconnect()', () => {
       vi.useFakeTimers();
       service.connect();
-      callbacks.onConnect?.();
+      capturedOnConnect?.();
 
       service.disconnect();
 
-      callbacks.onDisconnect?.();
+      capturedOnDisconnect?.();
 
       vi.advanceTimersByTime(2000);
 

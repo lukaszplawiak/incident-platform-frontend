@@ -147,12 +147,34 @@ describe('WebSocketService', () => {
   };
 
   beforeEach(() => {
+    // TestBed.resetTestingModule() first, explicitly — belt-and-suspenders
+    // against a long-lived watch-mode process not fully tearing down the
+    // previous test's injector before this test's TestBed.configureTestingModule()
+    // call below. Angular's own test harness is supposed to handle this
+    // automatically between tests, but the failure this guards against
+    // (mockLogger.warn asserted with 0 calls, while WebSocketService's
+    // catch block that calls it definitely ran) is exactly the symptom of
+    // service.logger still pointing at a *previous* test's mockLogger
+    // instance rather than the one just configured — i.e. a stale
+    // TestBed-scoped instance of the WebSocketService singleton surviving
+    // across supposedly-isolated tests. Calling this explicitly costs
+    // nothing when the framework's own teardown already worked correctly,
+    // and closes the gap when it didn't.
+    TestBed.resetTestingModule();
+    
+    // vi.resetAllMocks() instead of individually clearing each hoisted mock:
+    // belt-and-suspenders against exactly the kind of stale-state leakage
+    // watch mode surfaced (see the comment above the STOMP mock setup).
+    // resetAllMocks() clears call history AND wipes any
+    // mockImplementation/mockReturnValue left over from whatever the
+    // previous test — or a previous watch-mode rerun of this same
+    // long-lived process — configured on these mocks, so every test starts
+    // from a guaranteed-clean slate rather than relying on each test/nested
+    // beforeEach to correctly override the last one's configuration.
+    vi.resetAllMocks();
+
     callbacks.onConnect = undefined;
     callbacks.onDisconnect = undefined;
-    mockActivate.mockClear();
-    mockDeactivate.mockClear();
-    mockUnsubscribe.mockClear();
-    mockSubscribe.mockClear();
     mockSubscribe.mockReturnValue({ unsubscribe: mockUnsubscribe });
 
     mockAuthService = {
@@ -328,6 +350,14 @@ describe('WebSocketService', () => {
     let messageHandler: ((msg: IMessage) => void) | undefined;
 
     beforeEach(() => {
+      // Explicit reset before re-wiring — messageHandler is plain test
+      // state (not a vi.fn()), so vi.resetAllMocks() in the outer
+      // beforeEach does not touch it. Without this, a stale handler from
+      // a previous test could theoretically survive if service.connect()
+      // ever failed to re-subscribe for any reason, silently calling into
+      // a mismatched mockLogger/mockIncidentService instance instead of
+      // the current test's.
+      messageHandler = undefined;
       mockSubscribe.mockImplementation((_topic: string, handler: (msg: IMessage) => void) => {
         messageHandler = handler;
         return { unsubscribe: vi.fn() };

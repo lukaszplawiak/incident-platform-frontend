@@ -530,4 +530,76 @@ describe('AuthService', () => {
       req.flush(null, { status: 204, statusText: 'No Content' });
     });
   });
+
+  describe('setupMfa', () => {
+    it('POSTs to /api/v1/auth/mfa/setup with an empty body', () => {
+      service.setupMfa().subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/setup`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({});
+      req.flush({ qrUrl: 'otpauth://totp/...', secret: 'JBSWY3DPEHPK3PXP' });
+    });
+  });
+
+  describe('enableMfa', () => {
+    it('POSTs to /api/v1/auth/mfa/enable with the TOTP code', () => {
+      service.enableMfa({ totpCode: '123456' }).subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/enable`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ totpCode: '123456' });
+      req.flush({ backupCodes: ['aaaa1111', 'bbbb2222'], message: 'MFA enabled.' });
+    });
+  });
+
+  describe('disableMfa', () => {
+    it('POSTs to /api/v1/auth/mfa/disable with password and TOTP code', () => {
+      service.disableMfa({ password: 'secret', totpCode: '123456' }).subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/disable`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ password: 'secret', totpCode: '123456' });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
+  describe('getBackupCodesStatus', () => {
+    it('sends GET to /api/v1/auth/mfa/backup-codes', () => {
+      service.getBackupCodesStatus().subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/backup-codes`);
+      expect(req.request.method).toBe('GET');
+      req.flush({ remainingCodes: 7, mfaEnabledAt: '2026-01-01T00:00:00Z' });
+    });
+  });
+
+  describe('verifyMfaBackup', () => {
+    it('POSTs to /api/v1/auth/mfa/verify-backup with X-Tenant-Id header', () => {
+      service.verifyMfaBackup(
+        { mfaToken: 'mfa-token-abc', backupCode: 'aaaa1111' },
+        'acme-corp'
+      ).subscribe();
+
+      const req = httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/verify-backup`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.headers.get('X-Tenant-Id')).toBe('acme-corp');
+      expect(req.request.body).toEqual({ mfaToken: 'mfa-token-abc', backupCode: 'aaaa1111' });
+      req.flush(successLoginResponse(validToken()));
+    });
+
+    it('stores tokens on success', () => {
+      const token = validToken();
+
+      service.verifyMfaBackup(
+        { mfaToken: 'mfa-token-abc', backupCode: 'aaaa1111' },
+        'acme-corp'
+      ).subscribe();
+
+      httpMock.expectOne(`${environment.authApiUrl}/api/v1/auth/mfa/verify-backup`)
+        .flush(successLoginResponse(token));
+
+      expect(sessionStorage.getItem(environment.tokenKey)).toBe(token);
+    });
+  });
 });

@@ -4,7 +4,11 @@
     <div class="login-header">
       <h1 class="login-title">🔐 Two-Factor Authentication</h1>
       <p class="login-subtitle">
-        Enter the 6-digit code from your authenticator app
+        @if (usingBackupCode()) {
+          Enter one of your backup codes
+        } @else {
+          Enter the 6-digit code from your authenticator app
+        }
       </p>
     </div>
 
@@ -14,45 +18,96 @@
       </div>
     }
 
-    <form [formGroup]="mfaForm" (ngSubmit)="onSubmit()" novalidate>
+    @if (!usingBackupCode()) {
+      <form [formGroup]="mfaForm" (ngSubmit)="onSubmit()" novalidate>
 
-      <div class="form-group">
-        <label class="form-label" for="totpCode">Authentication code</label>
-        <input
-          id="totpCode"
-          type="text"
-          inputmode="numeric"
-          class="form-input mfa-input"
-          [class.form-input--error]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern')"
-          formControlName="totpCode"
-          placeholder="000000"
-          autocomplete="one-time-code"
-          maxlength="6"
-          [attr.aria-describedby]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern') ? 'totp-error' : null">
+        <div class="form-group">
+          <label class="form-label" for="totpCode">Authentication code</label>
+          <input
+            id="totpCode"
+            type="text"
+            inputmode="numeric"
+            class="form-input mfa-input"
+            [class.form-input--error]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern')"
+            formControlName="totpCode"
+            placeholder="000000"
+            autocomplete="one-time-code"
+            maxlength="6"
+            [attr.aria-describedby]="hasError('totpCode', 'required') || hasError('totpCode', 'pattern') ? 'totp-error' : null">
 
-        @if (hasError('totpCode', 'required')) {
-          <span id="totp-error" class="form-error" role="alert">
-            Authentication code is required
-          </span>
-        } @else if (hasError('totpCode', 'pattern')) {
-          <span id="totp-error" class="form-error" role="alert">
-            Code must be exactly 6 digits
-          </span>
-        }
-      </div>
+          @if (hasError('totpCode', 'required')) {
+            <span id="totp-error" class="form-error" role="alert">
+              Authentication code is required
+            </span>
+          } @else if (hasError('totpCode', 'pattern')) {
+            <span id="totp-error" class="form-error" role="alert">
+              Code must be exactly 6 digits
+            </span>
+          }
+        </div>
 
-      <button
-        type="submit"
-        class="login-button"
-        [disabled]="loading()">
-        @if (loading()) {
-          <span>Verifying...</span>
+        <button
+          type="submit"
+          class="login-button"
+          [disabled]="loading()">
+          @if (loading()) {
+            <span>Verifying...</span>
+          } @else {
+            <span>Verify</span>
+          }
+        </button>
+
+      </form>
+    } @else {
+      <form [formGroup]="backupCodeForm" (ngSubmit)="onSubmit()" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="backupCode">Backup code</label>
+          <input
+            id="backupCode"
+            type="text"
+            class="form-input mfa-input"
+            [class.form-input--error]="hasBackupError('required') || hasBackupError('pattern')"
+            formControlName="backupCode"
+            placeholder="a1b2c3d4"
+            autocomplete="one-time-code"
+            maxlength="8"
+            [attr.aria-describedby]="hasBackupError('required') || hasBackupError('pattern') ? 'backup-error' : null">
+
+          @if (hasBackupError('required')) {
+            <span id="backup-error" class="form-error" role="alert">
+              Backup code is required
+            </span>
+          } @else if (hasBackupError('pattern')) {
+            <span id="backup-error" class="form-error" role="alert">
+              Backup code must be 8 characters
+            </span>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="login-button"
+          [disabled]="loading()">
+          @if (loading()) {
+            <span>Verifying...</span>
+          } @else {
+            <span>Verify</span>
+          }
+        </button>
+
+      </form>
+    }
+
+    <p class="login-links">
+      <a class="login-link" (click)="toggleBackupCode()" role="button" tabindex="0" (keyup.enter)="toggleBackupCode()">
+        @if (usingBackupCode()) {
+          ← Use authenticator app instead
         } @else {
-          <span>Verify</span>
+          Lost your device? Use a backup code
         }
-      </button>
-
-    </form>
+      </a>
+    </p>
 
     <p class="login-links">
       <a [routerLink]="['/login']" class="login-link">← Back to login</a>

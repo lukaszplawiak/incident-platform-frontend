@@ -33,6 +33,16 @@ export class MfaVerify implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
+  /**
+   * Toggles between "enter a TOTP code" and "enter a backup code" —
+   * recovery path for when the authenticator app is unavailable (device
+   * lost, reinstalled, etc). Without this, backup codes generated during
+   * MFA setup (see mfa-settings.ts) would never actually be usable: the
+   * backend has POST /mfa/verify-backup, but this screen only ever called
+   * POST /mfa/verify.
+   */
+  readonly usingBackupCode = signal(false);
+
   private mfaToken = '';
   private tenantId = '';
 
@@ -40,6 +50,13 @@ export class MfaVerify implements OnInit {
     totpCode: ['', [
       Validators.required,
       Validators.pattern(/^\d{6}$/),
+    ]],
+  });
+
+  readonly backupCodeForm: FormGroup = this.fb.group({
+    backupCode: ['', [
+      Validators.required,
+      Validators.pattern(/^[a-zA-Z0-9]{8}$/),
     ]],
   });
 
@@ -59,7 +76,22 @@ export class MfaVerify implements OnInit {
     this.tenantId = state['tenantId'] as string;
   }
 
+  toggleBackupCode(): void {
+    this.usingBackupCode.update(v => !v);
+    this.error.set(null);
+    this.mfaForm.reset();
+    this.backupCodeForm.reset();
+  }
+
   onSubmit(): void {
+    if (this.usingBackupCode()) {
+      this.submitBackupCode();
+    } else {
+      this.submitTotpCode();
+    }
+  }
+
+  private submitTotpCode(): void {
     if (this.mfaForm.invalid) {
       this.mfaForm.markAllAsTouched();
       return;
@@ -89,8 +121,43 @@ export class MfaVerify implements OnInit {
     });
   }
 
+  private submitBackupCode(): void {
+    if (this.backupCodeForm.invalid) {
+      this.backupCodeForm.markAllAsTouched();
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    const { backupCode } = this.backupCodeForm.value as { backupCode: string };
+
+    this.authService.verifyMfaBackup(
+      { mfaToken: this.mfaToken, backupCode },
+      this.tenantId
+    ).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.logger.info('MFA backup code verification successful');
+        this.idleService.startWatching();
+        this.router.navigate(['/incidents']);
+      },
+      error: (err: Error) => {
+        this.loading.set(false);
+        this.backupCodeForm.get('backupCode')?.reset();
+        this.error.set(this.humanizeBackupError(err));
+        this.logger.warn('MFA backup code verification failed', { message: err.message });
+      }
+    });
+  }
+
   hasError(field: string, errorType: string): boolean {
     const control = this.mfaForm.get(field);
+    return !!(control?.touched && control?.hasError(errorType));
+  }
+
+  hasBackupError(errorType: string): boolean {
+    const control = this.backupCodeForm.get('backupCode');
     return !!(control?.touched && control?.hasError(errorType));
   }
 
@@ -101,6 +168,18 @@ export class MfaVerify implements OnInit {
     if (err instanceof ApiError) {
       if (err.status === 401) {
         return 'Invalid or expired code. Please check your authenticator app and try again.';
+      }
+      if (err.status === 0) {
+        return 'Cannot connect to the server. Check your network connection.';
+      }
+    }
+    return 'Verification failed. Please try again.';
+  }
+
+  private humanizeBackupError(err: Error): string {
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        return 'Invalid or already-used backup code, or this login session has expired.';
       }
       if (err.status === 0) {
         return 'Cannot connect to the server. Check your network connection.';

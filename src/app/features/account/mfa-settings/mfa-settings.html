@@ -1,0 +1,185 @@
+<div class="mfa-page">
+
+  <div class="mfa-header">
+    <h1 class="mfa-title">Account Security</h1>
+    <p class="mfa-subtitle">Two-factor authentication (TOTP)</p>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">Loading...</div>
+  } @else {
+
+    <!-- ── Just enabled: one-time backup codes display ──────────────────── -->
+    @if (justEnabledBackupCodes(); as codes) {
+      <div class="card card--success">
+        <h2 class="card__title">✓ MFA enabled</h2>
+        <p class="card__text">
+          Save these backup codes somewhere safe. Each one can be used once to
+          sign in if you lose access to your authenticator app.
+          <strong>They will not be shown again.</strong>
+        </p>
+
+        <div class="backup-codes">
+          @for (code of codes; track code) {
+            <span class="backup-codes__code">{{ code }}</span>
+          }
+        </div>
+
+        <button class="btn btn--primary" (click)="confirmBackupCodesSaved()">
+          I've saved my backup codes
+        </button>
+      </div>
+
+    <!-- ── Setup in progress: QR + confirmation code ─────────────────────── -->
+    } @else if (setupResponse(); as setup) {
+      <div class="card">
+        <h2 class="card__title">Scan this QR code</h2>
+        <p class="card__text">
+          Scan with Google Authenticator, 1Password, or any TOTP app. Can't
+          scan it? Enter this code manually instead:
+        </p>
+
+        @if (qrDataUrl(); as qr) {
+          <img class="mfa-qr" [src]="qr" alt="MFA setup QR code" width="220" height="220">
+        }
+
+        <div class="secret-box">
+          <code>{{ setup.secret }}</code>
+        </div>
+
+        @if (setupError()) {
+          <div class="banner banner--error" role="alert">{{ setupError() }}</div>
+        }
+
+        <form [formGroup]="enableForm" (ngSubmit)="submitEnable()" novalidate>
+
+          @if (enableError()) {
+            <div class="banner banner--error" role="alert">{{ enableError() }}</div>
+          }
+
+          <div class="form-group">
+            <label class="form-label" for="totp-code">Enter the 6-digit code from your app</label>
+            <input
+              id="totp-code"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              class="form-input form-input--code"
+              [class.form-input--error]="hasEnableError('required') || hasEnableError('pattern')"
+              formControlName="totpCode"
+              placeholder="000000">
+            @if (hasEnableError('required')) {
+              <span class="form-error">Code is required</span>
+            } @else if (hasEnableError('pattern')) {
+              <span class="form-error">Code must be exactly 6 digits</span>
+            }
+          </div>
+
+          <div class="card__actions">
+            <button type="button" class="btn btn--secondary" (click)="cancelSetup()">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn--primary" [disabled]="enableLoading()">
+              @if (enableLoading()) { Verifying... } @else { Verify &amp; enable }
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    <!-- ── Steady state: MFA enabled ──────────────────────────────────────── -->
+    } @else if (mfaEnabled()) {
+      <div class="card">
+        <h2 class="card__title">✓ Two-factor authentication is enabled</h2>
+
+        @if (backupCodesStatus(); as status) {
+          <p class="card__text">
+            {{ status.remainingCodes }} backup code{{ status.remainingCodes === 1 ? '' : 's' }} remaining.
+          </p>
+        }
+
+        @if (!showDisableForm()) {
+          <button class="btn btn--danger" (click)="openDisableForm()">
+            Disable MFA
+          </button>
+        } @else {
+          <form [formGroup]="disableForm" (ngSubmit)="submitDisable()" novalidate>
+
+            <p class="card__text">
+              Disabling MFA requires your password and a current code from your
+              authenticator app.
+            </p>
+
+            @if (disableError()) {
+              <div class="banner banner--error" role="alert">{{ disableError() }}</div>
+            }
+
+            <div class="form-group">
+              <label class="form-label" for="disable-password">Password</label>
+              <input
+                id="disable-password"
+                type="password"
+                class="form-input"
+                [class.form-input--error]="hasDisableError('password', 'required')"
+                formControlName="password"
+                placeholder="••••••••">
+              @if (hasDisableError('password', 'required')) {
+                <span class="form-error">Password is required</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="disable-code">Current 6-digit code</label>
+              <input
+                id="disable-code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                class="form-input form-input--code"
+                [class.form-input--error]="hasDisableError('totpCode', 'required') || hasDisableError('totpCode', 'pattern')"
+                formControlName="totpCode"
+                placeholder="000000">
+              @if (hasDisableError('totpCode', 'required')) {
+                <span class="form-error">Code is required</span>
+              } @else if (hasDisableError('totpCode', 'pattern')) {
+                <span class="form-error">Code must be exactly 6 digits</span>
+              }
+            </div>
+
+            <div class="card__actions">
+              <button type="button" class="btn btn--secondary" (click)="cancelDisable()">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn--danger" [disabled]="disableLoading()">
+                @if (disableLoading()) { Disabling... } @else { Confirm disable }
+              </button>
+            </div>
+
+          </form>
+        }
+      </div>
+
+    <!-- ── Not set up yet ──────────────────────────────────────────────────── -->
+    } @else {
+      <div class="card">
+        <h2 class="card__title">Two-factor authentication is not enabled</h2>
+        <p class="card__text">
+          Add an extra layer of security to your account using an authenticator
+          app like Google Authenticator or 1Password.
+        </p>
+
+        @if (setupError()) {
+          <div class="banner banner--error" role="alert">{{ setupError() }}</div>
+        }
+
+        <button class="btn btn--primary" (click)="startSetup()" [disabled]="setupLoading()">
+          @if (setupLoading()) { Starting setup... } @else { Set up two-factor authentication }
+        </button>
+      </div>
+    }
+
+  }
+
+</div>

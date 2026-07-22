@@ -108,3 +108,59 @@ export interface ResetPasswordRequest {
   token: string;
   newPassword: string;
 }
+
+/**
+ * Response from POST /api/v1/auth/mfa/setup.
+ * qrUrl is an otpauth:// URI — render it as a QR code client-side only
+ * (see mfa-settings.ts). It embeds the raw TOTP secret, so it must never
+ * be sent to any third party (e.g. a public "QR code generator" API) —
+ * doing so would leak the secret to that service.
+ */
+export interface MfaSetupResponse {
+  qrUrl: string;
+  /** Base32 secret for manual entry when the QR can't be scanned. Shown once. */
+  secret: string;
+}
+
+/** Request body for POST /api/v1/auth/mfa/enable. */
+export interface MfaEnableRequest {
+  totpCode: string;
+}
+
+/**
+ * Response from POST /api/v1/auth/mfa/enable.
+ * backupCodes are shown exactly once — the backend never returns them
+ * again after this call. The UI must make the user explicitly confirm
+ * they've saved them before moving on.
+ */
+export interface MfaEnableResponse {
+  backupCodes: string[];
+  message: string;
+}
+
+/**
+ * Request body for POST /api/v1/auth/mfa/disable.
+ * Requires both password and a current TOTP code — a stolen session
+ * token alone cannot turn MFA off.
+ */
+export interface MfaDisableRequest {
+  password: string;
+  totpCode: string;
+}
+
+/**
+ * Request body for POST /api/v1/auth/mfa/verify-backup — login recovery
+ * when the authenticator app is unavailable. Sibling to MfaVerifyRequest;
+ * used from the same mfa-verify screen via a "use a backup code instead"
+ * toggle.
+ */
+export interface MfaVerifyBackupRequest {
+  mfaToken: string;
+  backupCode: string;
+}
+
+/** Response from GET /api/v1/auth/mfa/backup-codes. */
+export interface MfaBackupCodesStatus {
+  remainingCodes: number;
+  mfaEnabledAt: string;
+}

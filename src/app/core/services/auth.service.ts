@@ -14,6 +14,12 @@ import {
   AcceptInviteRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  MfaSetupResponse,
+  MfaEnableRequest,
+  MfaEnableResponse,
+  MfaDisableRequest,
+  MfaVerifyBackupRequest,
+  MfaBackupCodesStatus,
   JwtPayload,
 } from '../models/auth.model';
 
@@ -314,5 +320,80 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/setup
+   *
+   * Initiates MFA setup for the currently logged-in user — generates a
+   * pending secret and returns it plus an otpauth:// QR provisioning URL.
+   * Authenticated (not a public endpoint): a 401 here genuinely means the
+   * session expired, so no IS_PUBLIC_AUTH_ENDPOINT context is needed —
+   * the default interceptor behavior (logout + redirect) is correct.
+   * Backend returns 409 if MFA is already enabled.
+   */
+  setupMfa(): Observable<MfaSetupResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/setup`;
+    return this.http.post<MfaSetupResponse>(url, {});
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/enable
+   *
+   * Confirms setup by verifying the first TOTP code from the user's
+   * authenticator app. Returns one-time backup codes — the backend never
+   * returns them again after this call, so the UI must make the user
+   * explicitly confirm they've saved them.
+   */
+  enableMfa(request: MfaEnableRequest): Observable<MfaEnableResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/enable`;
+    return this.http.post<MfaEnableResponse>(url, request);
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/disable
+   *
+   * Requires both password and a current TOTP code — a stolen session
+   * token alone cannot turn MFA off.
+   */
+  disableMfa(request: MfaDisableRequest): Observable<void> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/disable`;
+    return this.http.post<void>(url, request);
+  }
+
+  /**
+   * GET /api/v1/auth/mfa/backup-codes
+   *
+   * Returns how many backup codes remain unused, for the account
+   * security page's steady-state display. Backend returns 409 if MFA
+   * isn't enabled — callers should only invoke this after confirming
+   * mfaEnabled via UserService.getMe().
+   */
+  getBackupCodesStatus(): Observable<MfaBackupCodesStatus> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/backup-codes`;
+    return this.http.get<MfaBackupCodesStatus>(url);
+  }
+
+  /**
+   * POST /api/v1/auth/mfa/verify-backup
+   *
+   * Login recovery path when the authenticator app is unavailable —
+   * exchanges the mfaToken from login plus a single-use backup code for
+   * access/refresh tokens. Public endpoint like verifyMfa(), same
+   * reasoning: no prior session exists yet, so a 401 (invalid/used code)
+   * must not trigger the global logout+redirect meant for session expiry.
+   */
+  verifyMfaBackup(request: MfaVerifyBackupRequest, tenantId: string): Observable<LoginResponse> {
+    const url = `${environment.authApiUrl}/api/v1/auth/mfa/verify-backup`;
+    const headers = new HttpHeaders({ 'X-Tenant-Id': tenantId });
+    const context = new HttpContext().set(IS_PUBLIC_AUTH_ENDPOINT, true);
+
+    return this.http.post<LoginResponse>(url, request, { headers, context }).pipe(
+      tap(response => {
+        if (response.accessToken && response.refreshToken) {
+          this.storeTokens(response.accessToken, response.refreshToken);
+        }
+      })
+    );
   }
 }

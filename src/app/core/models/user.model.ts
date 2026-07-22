@@ -9,6 +9,7 @@ export interface User {
   roles: string[];
   teamIds: string[];
   active: boolean;
+  mfaEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -36,7 +36,8 @@
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [
-              "@stomp/stompjs"
+              "@stomp/stompjs",
+              "qrcode"
             ]
           },
           "configurations": {

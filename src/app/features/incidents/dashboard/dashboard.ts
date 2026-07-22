@@ -20,6 +20,7 @@ import { LoggerService } from '../../../core/services/logger.service';
 import { IncidentList } from '../incident-list/incident-list';
 import { IncidentFilter } from '../incident-filter/incident-filter';
 import { IncidentPagination } from '../incident-pagination/incident-pagination';
+import { RouterLink } from '@angular/router';
 import {
   IncidentFilter as IncidentFilterModel,
   UpdateStatusRequest,
@@ -29,7 +30,7 @@ import {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [IncidentList, IncidentFilter, IncidentPagination, DatePipe],
+  imports: [IncidentList, IncidentFilter, IncidentPagination, DatePipe, RouterLink],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })

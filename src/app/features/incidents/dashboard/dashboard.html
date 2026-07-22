@@ -60,6 +60,10 @@
         ↻ Refresh
       </button>
 
+       <a [routerLink]="['/mfa-settings']" class="dashboard__btn dashboard__btn--secondary" title="Account security">
+        🔒 Security
+      </a>
+
       <button class="dashboard__btn dashboard__btn--logout"
               (click)="onLogout()">
         Logout

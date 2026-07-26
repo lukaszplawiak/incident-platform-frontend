@@ -59,6 +59,14 @@
   margin-bottom: 8px;
 }
 
+.current-oncall__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .current-oncall-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -256,6 +264,12 @@
 
   &:focus { outline: none; border-color: #63b3ed; box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.15); }
   &--error { border-color: #fc8181; }
+
+  &--inline {
+    width: auto;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
 }
 
 .form-textarea { min-height: 70px; resize: vertical; font-family: inherit; }

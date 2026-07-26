@@ -25,15 +25,15 @@ import { User } from '../../core/models/user.model';
 
 /**
  * On-call panel — schedule management (any RESPONDER/ADMIN can view) plus
- * a "currently on-call" snapshot (ADMIN only, matching oncall-service's
- * URL-level security rule on GET /current — see OncallService and the
- * CurrentOncall model doc comment for why).
+ * a team-scoped "currently on-call" snapshot (also RESPONDER/ADMIN — see
+ * OncallService.getAllCurrentOncallForTeam for the permission reasoning).
  *
  * Route uses authGuard, not adminGuard: unlike /admin/users, /admin/teams
  * and /admin/integrations, this page is not admin-exclusive — the backend
- * lets any authenticated RESPONDER browse schedules. Create/delete actions
- * are gated in the template behind isAdmin(), mirroring the backend's own
- * @PreAuthorize("hasRole('ADMIN')") on POST/DELETE.
+ * lets any authenticated RESPONDER browse schedules and see who's on call.
+ * Create/delete actions are gated in the template behind isAdmin(),
+ * mirroring the backend's own @PreAuthorize("hasRole('ADMIN')") on
+ * POST/DELETE — that part is genuinely admin-only and unchanged.
  */
 @Component({
   selector: 'app-oncall',
@@ -62,10 +62,12 @@ export class Oncall implements OnInit {
   readonly currentPage = signal(0);
   readonly pageSize = 20;
 
-  // ── Currently on-call (ADMIN only) ──────────────────────────────────────────
+  // ── Currently on-call (team-scoped, RESPONDER/ADMIN) ────────────────────────
 
   readonly currentOncallLoading = signal(false);
   readonly currentOncall = signal<CurrentOncall[]>([]);
+  /** Team the "Currently on-call" section is showing. Null = no team picked yet. */
+  readonly selectedTeamId = signal<string | null>(null);
 
   // ── Lookup data for the create form ─────────────────────────────────────────
 
@@ -102,12 +104,6 @@ export class Oncall implements OnInit {
     this.loadSchedules();
     this.loadAllUsers();
     this.loadAllTeams();
-
-    // GET /current is ADMIN/SERVICE only at the backend — a RESPONDER
-    // calling it would just get a 403. Don't even try.
-    if (this.isAdmin()) {
-      this.loadCurrentOncall();
-    }
   }
 
   // ── Data loading ─────────────────────────────────────────────────────────────
@@ -127,9 +123,14 @@ export class Oncall implements OnInit {
     });
   }
 
-  loadCurrentOncall(): void {
+  onTeamSelected(teamId: string): void {
+    this.selectedTeamId.set(teamId);
+    this.loadCurrentOncall(teamId);
+  }
+
+  loadCurrentOncall(teamId: string): void {
     this.currentOncallLoading.set(true);
-    this.oncallService.getAllCurrentOncall().subscribe({
+    this.oncallService.getAllCurrentOncallForTeam(teamId).subscribe({
       next: current => {
         this.currentOncall.set(current);
         this.currentOncallLoading.set(false);
@@ -150,7 +151,15 @@ export class Oncall implements OnInit {
 
   loadAllTeams(): void {
     this.teamService.listTeams().subscribe({
-      next: teams => this.allTeams.set(teams),
+      next: teams => {
+        this.allTeams.set(teams);
+        // Default to the first team so the "Currently on-call" section
+        // shows something useful immediately, rather than an empty
+        // "pick a team" state on every page load.
+        if (teams.length > 0 && this.selectedTeamId() === null) {
+          this.onTeamSelected(teams[0].id);
+        }
+      },
       error: () => { /* non-critical — create form's team select will be empty */ }
     });
   }
@@ -235,8 +244,9 @@ export class Oncall implements OnInit {
         this.showCreateForm.set(false);
         this.toast.success(`On-call schedule created for ${selectedUser.email}`);
         this.loadSchedules();
-        if (this.isAdmin()) {
-          this.loadCurrentOncall();
+        const teamId = this.selectedTeamId();
+        if (teamId) {
+          this.loadCurrentOncall(teamId);
         }
       },
       error: (err: { status?: number }) => {
@@ -276,8 +286,9 @@ export class Oncall implements OnInit {
         this.confirmingDelete.set(null);
         this.toast.success(`Schedule for ${schedule.email} deleted`);
         this.loadSchedules();
-        if (this.isAdmin()) {
-          this.loadCurrentOncall();
+        const teamId = this.selectedTeamId();
+        if (teamId) {
+          this.loadCurrentOncall(teamId);
         }
       },
       error: () => {

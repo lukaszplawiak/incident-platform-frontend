@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PageResponse } from '../models/incident.model';
 import {
@@ -46,21 +46,29 @@ export class OncallService {
   }
 
   /**
-   * GET /api/v1/oncall/current
-   * Returns the currently active on-call person for every role
-   * (PRIMARY/SECONDARY/MANAGER), tenant-wide.
+   * GET /api/v1/oncall/current/all?teamId={teamId}
+   * Returns every current on-call person (all roles: PRIMARY/SECONDARY/
+   * MANAGER) for one specific team.
    *
-   * ADMIN only — see CurrentOncall doc comment for why. Callers must
-   * check authService.isAdmin() before invoking this; a RESPONDER calling
-   * it will get a 403.
+   * ROLE_RESPONDER or ROLE_ADMIN — any authenticated platform user can see
+   * who's on call for a team, matching PagerDuty's own permission model
+   * (viewing on-call is broadly available; only managing schedules is
+   * restricted to admins). See oncall-service SecurityConfig.
    *
-   * Backend returns 204 No Content (empty body) when nothing is
-   * configured, rather than an empty array with 200 — normalized here so
-   * callers always get an array.
+   * Deliberately NOT calling the tenant-wide GET /api/v1/oncall/current
+   * (no teamId) — that endpoint aggregates every team at once and stays
+   * ROLE_SERVICE/ROLE_ADMIN only at the backend; its own Javadoc documents
+   * it as being for internal service-to-service calls (notification-
+   * service, escalation-service), not end-user UI. This page previously
+   * called it anyway (with the whole section gated behind isAdmin() to
+   * paper over the mismatch) — using the correctly-scoped, correctly-
+   * permissioned endpoint here removes the need for that.
+   * Backend always returns 200 with a (possibly empty) array — unlike
+   * GET /current, this endpoint never returns 204 No Content.
    */
-  getAllCurrentOncall(): Observable<CurrentOncall[]> {
-    return this.http.get<CurrentOncall[] | null>(`${this.baseUrl}/current`).pipe(
-      map(response => response ?? [])
-    );
+  getAllCurrentOncallForTeam(teamId: string): Observable<CurrentOncall[]> {
+    return this.http.get<CurrentOncall[]>(`${this.baseUrl}/current/all`, {
+      params: { teamId }
+    });
   }
 }

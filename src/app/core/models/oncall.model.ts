@@ -49,12 +49,11 @@ export interface CreateOncallScheduleRequest {
 /**
  * Mirrors backend CurrentOncallResponse.
  *
- * GET /api/v1/oncall/current is restricted at the URL-security level to
- * ROLE_SERVICE and ROLE_ADMIN (see oncall-service SecurityConfig) — a
- * human user must have ROLE_ADMIN to call this. ROLE_RESPONDER can browse
- * the full schedule list (GET /schedules) but cannot see this "who's on
- * call right now" snapshot. OncallPanel gates the section that calls this
- * behind authService.isAdmin() accordingly.
+ * Fetched via GET /api/v1/oncall/current/all?teamId={teamId} —
+ * ROLE_RESPONDER or ROLE_ADMIN. Every authenticated user can see who is
+ * currently on call for a given team; only managing schedules
+ * (create/delete) requires ROLE_ADMIN. See OncallService and
+ * oncall-service's SecurityConfig for the full reasoning.
  */
 export interface CurrentOncall {
   userId: string;

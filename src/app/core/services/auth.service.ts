@@ -127,12 +127,26 @@ export class AuthService {
 
     return this.http.post<LoginResponse>(url, request, { headers, context }).pipe(
       tap(response => {
-        if (!response.mfaRequired && response.accessToken && response.refreshToken) {
+        if (!response.mfaRequired && !response.mfaSetupRequired
+            && response.accessToken && response.refreshToken) {
           this.storeTokens(response.accessToken, response.refreshToken);
         }
-        // If MFA is required — do NOT store tokens yet.
-        // Caller (Login component) navigates to MFA verify screen,
-        // which will call verifyMfa() and then store tokens.
+        // If MFA is required, or the tenant requires MFA and this user
+        // hasn't set it up yet — do NOT store tokens.
+        //
+        // Previously this branch only checked !mfaRequired, relying on
+        // accessToken/refreshToken both being null in the
+        // mfaSetupRequired=true response to implicitly prevent storage —
+        // correct today, but fragile: nothing here actually declared that
+        // intent, so a future backend change to that response shape could
+        // have silently started storing tokens for an incomplete login.
+        // Checking !mfaSetupRequired explicitly removes that dependency
+        // on incidental null values.
+        //
+        // Caller (Login component) navigates to /auth/mfa (mfaRequired)
+        // or /mfa-setup-required (mfaSetupRequired), which complete the
+        // login and store tokens themselves via verifyMfa() or
+        // completeMfaSetupRequired().
       })
     );
   }

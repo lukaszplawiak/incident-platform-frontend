@@ -13,32 +13,60 @@
     }
   </div>
 
-  <!-- ── Currently on-call (ADMIN only) ────────────────────────────────── -->
-  @if (isAdmin()) {
-    <div class="current-oncall">
-      <h2 class="section-title">Currently on-call</h2>
-      @if (currentOncallLoading()) {
-        <div class="loading-state">Loading...</div>
-      } @else if (currentOncall().length === 0) {
-        <div class="empty-state empty-state--compact">No one is currently on call.</div>
-      } @else {
-        <div class="current-oncall-grid">
-          @for (current of currentOncall(); track trackByUserId($index, current)) {
-            <div class="current-card">
-              <span class="role-badge" [class]="'role-badge--' + current.role.toLowerCase()">
-                {{ current.role }}
-              </span>
-              <div class="current-card__name">{{ current.userName }}</div>
-              <div class="current-card__email">{{ current.email }}</div>
-              <div class="current-card__meta">
-                Shift ends {{ current.shiftEndsAt | date:'dd MMM, HH:mm' }}
-              </div>
-            </div>
-          }
-        </div>
-      }
+ <div class="admin-page">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">On-Call</h1>
+      <p class="admin-subtitle">{{ totalElements() }} schedule entr{{ totalElements() === 1 ? 'y' : 'ies' }}</p>
     </div>
-  }
+    @if (isAdmin()) {
+      <button class="btn btn--primary" (click)="openCreateForm()">
+        + Add schedule
+      </button>
+    }
+  </div>
+
+  <!-- ── Currently on-call (team-scoped, RESPONDER/ADMIN) ──────────────── -->
+  <div class="current-oncall">
+    <div class="current-oncall__header">
+      <h2 class="section-title">Currently on-call</h2>
+      <select
+        class="form-input form-input--inline"
+        aria-label="Team"
+        [value]="selectedTeamId()"
+        (change)="onTeamSelected($any($event.target).value)">
+        @for (team of allTeams(); track team.id) {
+          <option [value]="team.id">{{ team.name }}</option>
+        }
+      </select>
+    </div>
+
+    @if (allTeams().length === 0) {
+      <div class="empty-state empty-state--compact">No teams configured yet.</div>
+    } @else if (currentOncallLoading()) {
+      <div class="loading-state">Loading...</div>
+    } @else if (currentOncall().length === 0) {
+      <div class="empty-state empty-state--compact">No one is currently on call for this team.</div>
+    } @else {
+      <div class="current-oncall-grid">
+        @for (current of currentOncall(); track trackByUserId($index, current)) {
+          <div class="current-card">
+            <span class="role-badge" [class]="'role-badge--' + current.role.toLowerCase()">
+              {{ current.role }}
+            </span>
+            <div class="current-card__name">{{ current.userName }}</div>
+            <div class="current-card__email">{{ current.email }}</div>
+            <div class="current-card__meta">
+              Shift ends {{ current.shiftEndsAt | date:'dd MMM, HH:mm' }}
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
 
   <!-- ── Schedules table ────────────────────────────────────────────────── -->
   <h2 class="section-title">Schedule</h2>

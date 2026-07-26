@@ -371,6 +371,29 @@ describe('AuthService', () => {
       expect(result?.mfaToken).toBe('fake-mfa-session-token');
       expect(sessionStorage.getItem(environment.tokenKey)).toBeNull();
     });
+
+    it('does not store tokens when mfaSetupRequired=true even if accessToken/refreshToken are present', () => {
+      // Regression test for the explicit !response.mfaSetupRequired check
+      // in AuthService.login(). Before that check existed, token storage
+      // was skipped only because accessToken/refreshToken happened to be
+      // null in every real mfaSetupRequired response — this test proves
+      // the guard itself, independent of that incidental null value, by
+      // supplying a response that violates the real contract (a token
+      // alongside mfaSetupRequired=true) and confirming storage is still
+      // skipped.
+      const malformedResponse: LoginResponse = {
+        ...mfaSetupRequiredLoginResponse(),
+        accessToken: 'unexpected-token',
+        refreshToken: 'unexpected-refresh-token',
+      };
+
+      service.login({ email: 'user@acme.com', password: 'secret' }, 'acme-corp')
+        .subscribe();
+
+      httpMock.expectOne(LOGIN_URL).flush(malformedResponse);
+
+      expect(sessionStorage.getItem(environment.tokenKey)).toBeNull();
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────

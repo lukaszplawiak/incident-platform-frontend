@@ -155,20 +155,23 @@ describe('OncallService', () => {
 
   // ── getAllCurrentOncall ──────────────────────────────────────────────────────
 
-  describe('getAllCurrentOncall', () => {
-    it('sends GET to /api/v1/oncall/current', () => {
-      service.getAllCurrentOncall().subscribe();
+  describe('getAllCurrentOncallForTeam', () => {
+    it('sends GET to /api/v1/oncall/current/all with the teamId param', () => {
+      service.getAllCurrentOncallForTeam('team-1').subscribe();
 
-      const req = httpMock.expectOne(`${BASE_URL}/current`);
+      const req = httpMock.expectOne(
+        r => r.url === `${BASE_URL}/current/all`
+      );
       expect(req.request.method).toBe('GET');
+      expect(req.request.params.get('teamId')).toBe('team-1');
       req.flush([buildCurrentOncall()]);
     });
 
     it('returns the array from a 200 response', () => {
       let result: CurrentOncall[] | undefined;
-      service.getAllCurrentOncall().subscribe(res => { result = res; });
+      service.getAllCurrentOncallForTeam('team-1').subscribe(res => { result = res; });
 
-      httpMock.expectOne(`${BASE_URL}/current`).flush([
+      httpMock.expectOne(r => r.url === `${BASE_URL}/current/all`).flush([
         buildCurrentOncall({ role: 'PRIMARY' }),
         buildCurrentOncall({ role: 'SECONDARY' }),
       ]);
@@ -176,14 +179,11 @@ describe('OncallService', () => {
       expect(result).toHaveLength(2);
     });
 
-    it('normalizes a 204 No Content response to an empty array', () => {
+    it('returns an empty array when no one is on call for the team', () => {
       let result: CurrentOncall[] | undefined;
-      service.getAllCurrentOncall().subscribe(res => { result = res; });
+      service.getAllCurrentOncallForTeam('team-1').subscribe(res => { result = res; });
 
-      httpMock.expectOne(`${BASE_URL}/current`).flush(null, {
-        status: 204,
-        statusText: 'No Content',
-      });
+      httpMock.expectOne(r => r.url === `${BASE_URL}/current/all`).flush([]);
 
       expect(result).toEqual([]);
     });

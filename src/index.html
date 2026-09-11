@@ -17,13 +17,30 @@
             http://localhost:8082
             ws://localhost:8082
             https://localhost:8082
-            wss://localhost:8082;
+            wss://localhost:8082
+            http://localhost:8086
+            http://localhost:8087;
           font-src 'self';
           img-src 'self' data:;
           frame-ancestors 'none';
           object-src 'none';
           base-uri 'self';
         ">
+  <!--
+    Fixed: connect-src previously only allowed :8081 (ingestion-service)
+    and :8082 (incident-service) — missing :8086 (oncall-service) and
+    :8087 (auth-service), both required by environment.ts's own
+    oncallApiUrl/authApiUrl. Content Security Policy is enforced by the
+    browser itself, before any network layer (CORS, the server, etc.)
+    ever sees the request — so a disallowed connect-src origin surfaces
+    as a generic connection failure indistinguishable from an actual
+    network/server problem, not as a CSP-specific error unless the
+    browser console is checked directly. This was the actual root cause
+    of a login failure that looked identical to a backend/CORS problem
+    from every other angle (curl against auth-service, with or without
+    an Origin header, always succeeded — curl doesn't enforce CSP, since
+    it isn't a browser rendering the page that carries this policy).
+  -->
   <meta http-equiv="X-Frame-Options" content="DENY">
 
 </head>

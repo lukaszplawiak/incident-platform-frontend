@@ -18,64 +18,31 @@
   @if (postmortem.status === 'FAILED') {
     <div class="postmortem__failed">
       ❌ Postmortem generation failed. The system will retry automatically.
+      @if (postmortem.errorMessage) {
+        <p class="postmortem__error-detail">{{ postmortem.errorMessage }}</p>
+      }
+    </div>
+  }
+
+  @if (postmortem.status === 'PERMANENTLY_FAILED') {
+    <div class="postmortem__failed postmortem__failed--permanent">
+      🛑 Postmortem generation failed after all retry attempts. Manual review required.
+      @if (postmortem.errorMessage) {
+        <p class="postmortem__error-detail">{{ postmortem.errorMessage }}</p>
+      }
     </div>
   }
 
   @if (postmortem.status === 'DRAFT' || postmortem.status === 'REVIEWED') {
 
-    @if (postmortem.generatedAt) {
+    @if (postmortem.updatedAt) {
       <p class="postmortem__generated-at">
-        Generated: {{ postmortem.generatedAt | date:'yyyy-MM-dd HH:mm' }}
+        Generated: {{ postmortem.updatedAt | date:'yyyy-MM-dd HH:mm' }}
       </p>
     }
 
-    @if (postmortem.summary) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">📋 Summary</h3>
-        <p class="postmortem__section-content">{{ postmortem.summary }}</p>
-      </div>
-    }
-
-    @if (postmortem.rootCause) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">🔍 Root Cause</h3>
-        <p class="postmortem__section-content">{{ postmortem.rootCause }}</p>
-      </div>
-    }
-
-    @if (postmortem.timeline) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">⏱️ Timeline</h3>
-        <p class="postmortem__section-content postmortem__section-content--pre">{{ postmortem.timeline }}</p>
-      </div>
-    }
-
-    @if (postmortem.impact) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">💥 Impact</h3>
-        <p class="postmortem__section-content">{{ postmortem.impact }}</p>
-      </div>
-    }
-
-    @if (postmortem.resolution) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">✔️ Resolution</h3>
-        <p class="postmortem__section-content">{{ postmortem.resolution }}</p>
-      </div>
-    }
-
-    @if (postmortem.actionItems) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">✅ Action Items</h3>
-        <p class="postmortem__section-content postmortem__section-content--pre">{{ postmortem.actionItems }}</p>
-      </div>
-    }
-
-    @if (postmortem.lessonsLearned) {
-      <div class="postmortem__section">
-        <h3 class="postmortem__section-title">💡 Lessons Learned</h3>
-        <p class="postmortem__section-content">{{ postmortem.lessonsLearned }}</p>
-      </div>
+    @if (renderedContent) {
+      <div class="postmortem__content" [innerHTML]="renderedContent"></div>
     }
 
   }

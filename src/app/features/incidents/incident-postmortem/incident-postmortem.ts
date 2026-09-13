@@ -1,4 +1,4 @@
-import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
@@ -18,7 +18,7 @@ export class IncidentPostmortem {
   @Input({ required: true }) postmortem!: Postmortem;
   @Input() loading = false;
 
-  constructor(private readonly sanitizer: DomSanitizer) {}
+  private readonly sanitizer = inject(DomSanitizer);
 
   /**
    * Fixed: this component previously read seven separate section fields

@@ -30,13 +30,27 @@ describe('IntegrationService', () => {
     });
   });
 
-  describe('createApiKey', () => {
+    describe('createApiKey', () => {
     it('sends POST with request body', () => {
-      service.createApiKey({ name: 'CI Key', type: 'PERSONAL', scopes: ['alerts:ingest'], ttl: 'P90D' }).subscribe();
+      service.createApiKey({
+        name: 'CI Key',
+        keyType: 'PERSONAL',
+        scopes: ['alerts:ingest'],
+        expiresAt: '2026-04-01T00:00:00Z',
+      }).subscribe();
       const req = httpMock.expectOne(API_KEYS_URL);
       expect(req.request.method).toBe('POST');
       expect(req.request.body.name).toBe('CI Key');
-      req.flush({ id: 'key-1', name: 'CI Key', rawToken: 'ipl_abc', createdAt: '2026-01-01T00:00:00Z', expiresAt: null });
+      req.flush({
+        id: 'key-1',
+        name: 'CI Key',
+        keyType: 'PERSONAL',
+        scopes: ['alerts:ingest'],
+        rawKey: 'ipl_abc',
+        expiresAt: null,
+        createdAt: '2026-01-01T00:00:00Z',
+        message: 'Store this key securely — it will not be shown again.',
+      });
     });
   });
 
@@ -58,13 +72,27 @@ describe('IntegrationService', () => {
     });
   });
 
-  describe('createIntegration', () => {
+    describe('createIntegration', () => {
     it('sends POST with request body', () => {
-      service.createIntegration({ name: 'Prometheus', teamId: 'team-1', scopes: ['alerts:ingest'], ttl: null }).subscribe();
+      service.createIntegration({
+        name: 'Prometheus',
+        source: 'prometheus',
+        teamId: 'team-1',
+      }).subscribe();
       const req = httpMock.expectOne(INTEGRATIONS_URL);
       expect(req.request.method).toBe('POST');
       expect(req.request.body.teamId).toBe('team-1');
-      req.flush({ integrationId: 'int-1', name: 'Prometheus', teamId: 'team-1', apiKeyId: 'key-1', rawToken: 'ipl_xyz', createdAt: '2026-01-01T00:00:00Z', expiresAt: null });
+      req.flush({
+        id: 'int-1',
+        name: 'Prometheus',
+        source: 'prometheus',
+        teamId: 'team-1',
+        teamName: 'Platform',
+        apiKey: 'ipl_xyz',
+        description: null,
+        createdAt: '2026-01-01T00:00:00Z',
+        message: 'Configure your monitoring system with this API key. It will not be shown again.',
+      });
     });
   });
 

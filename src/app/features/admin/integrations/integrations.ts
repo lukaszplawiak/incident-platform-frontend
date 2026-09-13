@@ -11,6 +11,8 @@ import {
   IntegrationCreatedResponse,
   API_KEY_SCOPES,
   ApiKeyScope,
+  INTEGRATION_SOURCES,
+  IntegrationSource,
 } from '../../../core/models/integration.model';
 import { Team } from '../../../core/models/team.model';
 
@@ -29,6 +31,7 @@ export class Integrations implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly allScopes = API_KEY_SCOPES;
+  readonly integrationSources = INTEGRATION_SOURCES;
 
   // ── State ────────────────────────────────────────────────────────────────────
 
@@ -61,8 +64,18 @@ export class Integrations implements OnInit {
 
   readonly integrationForm: FormGroup = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
+    // Fixed: source is @NotBlank and pattern-restricted on the backend
+    // (CreateIntegrationRequest.java) but was entirely absent from this
+    // form — every submission was rejected with a validation error
+    // before this fix, since the backend never received a field it
+    // requires.
+    source: ['', Validators.required],
     teamId: ['', Validators.required],
-    ttlDays: [null],
+    // Fixed: ttlDays removed — CreateIntegrationRequest.java has never
+    // accepted an expiry field for integrations (unlike personal API
+    // keys). This field previously misled the user into thinking an
+    // integration's key could be made to expire, when the backend has
+    // no such concept for this key type.
   });
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -129,16 +142,28 @@ export class Integrations implements OnInit {
     };
 
     this.apiKeyLoading.set(true);
+    // Fixed: previously sent { type, ttl } — CreateApiKeyRequest.java's
+    // own @NotNull field is `keyType`, not `type`, so every one of these
+    // calls failed backend validation before this fix regardless of
+    // what the form contained. `ttl` (a duration string like "P30D")
+    // never matched the backend's own `expiresAt` (an ISO instant) —
+    // converted here via daysFromNowIso, since the form itself still
+    // collects a day count, which is friendlier for an admin to type
+    // than a raw timestamp.
     this.integrationService.createApiKey({
       name,
-      type: 'PERSONAL',
+      keyType: 'PERSONAL',
       scopes,
-      ttl: ttlDays ? `P${ttlDays}D` : null,
+      expiresAt: this.daysFromNowIso(ttlDays),
     }).subscribe({
       next: (response: ApiKeyCreatedResponse) => {
         this.apiKeyLoading.set(false);
         this.showApiKeyForm.set(false);
-        this.showNewToken(response.name, response.rawToken, response.expiresAt);
+        // Fixed: response.rawToken was always undefined — the backend
+        // has always sent this field as `rawKey`. This is the one and
+        // only time the raw key is ever returned, so this modal was
+        // always showing the user an empty/undefined key to copy.
+        this.showNewToken(response.name, response.rawKey, response.expiresAt);
         this.loadAll();
       },
       error: () => {
@@ -156,7 +181,7 @@ export class Integrations implements OnInit {
   // ── Integration form ─────────────────────────────────────────────────────────
 
   openIntegrationForm(): void {
-    this.integrationForm.reset({ ttlDays: null });
+    this.integrationForm.reset({ source: '' });
     this.showIntegrationForm.set(true);
   }
 
@@ -169,23 +194,32 @@ export class Integrations implements OnInit {
       this.integrationForm.markAllAsTouched();
       return;
     }
-    const { name, teamId, ttlDays } = this.integrationForm.value as {
+    const { name, source, teamId } = this.integrationForm.value as {
       name: string;
+      source: IntegrationSource;
       teamId: string;
-      ttlDays: number | null;
     };
 
     this.integrationLoading.set(true);
+    // Fixed: previously sent { name, teamId, scopes, ttl } with no
+    // `source` at all — CreateIntegrationRequest.java's own @NotBlank
+    // field requires it, so every one of these calls was rejected with
+    // a validation error before this fix. `scopes`/`ttl` removed —
+    // CreateIntegrationRequest.java has never accepted either.
     this.integrationService.createIntegration({
       name,
+      source,
       teamId,
-      scopes: ['alerts:ingest'],
-      ttl: ttlDays ? `P${ttlDays}D` : null,
     }).subscribe({
       next: (response: IntegrationCreatedResponse) => {
         this.integrationLoading.set(false);
         this.showIntegrationForm.set(false);
-        this.showNewToken(response.name, response.rawToken, response.expiresAt);
+        // Fixed: response.rawToken was always undefined — the backend
+        // has always sent this field as `apiKey`. This is the one and
+        // only time the raw key is ever returned for an integration, so
+        // this modal was always showing the user an empty/undefined key
+        // to configure their monitoring system with.
+        this.showNewToken(response.name, response.apiKey, null);
         this.loadAll();
       },
       error: (err: { status?: number }) => {
@@ -275,4 +309,19 @@ export class Integrations implements OnInit {
 
   trackByKeyId(_index: number, key: ApiKey): string { return key.id; }
   trackByIntegrationId(_index: number, i: Integration): string { return i.id; }
+
+  /**
+   * Converts a day count from the API key form into the ISO instant
+   * CreateApiKeyRequest.expiresAt actually expects. Returns null for a
+   * non-expiring key, matching the backend's own "null = non-expiring"
+   * contract.
+   */
+  private daysFromNowIso(days: number | null): string | null {
+    if (!days) {
+      return null;
+    }
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + days);
+    return expiry.toISOString();
+  }
 }

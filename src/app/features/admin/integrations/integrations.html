@@ -304,6 +304,23 @@
             }
           </div>
 
+                    <div class="form-group">
+            <label class="form-label" for="integration-source">Alert source</label>
+            <select
+              id="integration-source"
+              class="form-input"
+              [class.form-input--error]="hasIntegrationError('source', 'required')"
+              formControlName="source">
+              <option value="">— Select source —</option>
+              @for (source of integrationSources; track source) {
+                <option [value]="source">{{ source }}</option>
+              }
+            </select>
+            @if (hasIntegrationError('source', 'required')) {
+              <span class="form-error">Source is required</span>
+            }
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="integration-team">Route alerts to team</label>
             <select
@@ -319,17 +336,6 @@
             @if (hasIntegrationError('teamId', 'required')) {
               <span class="form-error">Team is required</span>
             }
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="integration-ttl">Expiry (days, optional)</label>
-            <input
-              id="integration-ttl"
-              type="number"
-              class="form-input"
-              formControlName="ttlDays"
-              placeholder="Leave empty for no expiry"
-              min="1">
           </div>
 
           <div class="modal-actions">

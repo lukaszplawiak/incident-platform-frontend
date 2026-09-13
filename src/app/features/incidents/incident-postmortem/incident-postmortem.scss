@@ -70,6 +70,23 @@
     padding: 12px 16px;
     border-radius: 8px;
     font-size: 14px;
+
+    // Fixed: PERMANENTLY_FAILED previously matched no @if branch in the
+    // template at all, so this state (and any style for it) never
+    // rendered. Same base look as the retryable FAILED state, with a
+    // distinct left border so the two are visually distinguishable —
+    // this one won't resolve on its own.
+    &--permanent {
+      border-left: 4px solid #fc8181;
+    }
+  }
+
+  &__error-detail {
+    margin: 8px 0 0;
+    font-size: 13px;
+    font-family: monospace;
+    color: #fbb6b6;
+    white-space: pre-wrap;
   }
 
   &__generated-at {
@@ -78,32 +95,99 @@
     margin: 0 0 20px;
   }
 
-  &__section {
-    margin-bottom: 24px;
-    background-color: #2d3748;
-    border-radius: 8px;
-    padding: 16px;
-  }
-
-  &__section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #a0aec0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0 0 10px;
-  }
-
-  &__section-content {
+  // Fixed: replaces the previous __section/__section-title/
+  // __section-content classes, which styled seven fields the backend
+  // has never sent (see postmortem.model.ts's own comment). content is
+  // rendered as a single markdown-to-HTML block instead — these rules
+  // style the actual elements marked.parse() produces from it.
+  &__content {
     font-size: 14px;
     color: #e2e8f0;
     line-height: 1.7;
-    margin: 0;
 
-    &--pre {
-      white-space: pre-wrap;
-      font-family: monospace;
+    :first-child {
+      margin-top: 0;
+    }
+
+    :last-child {
+      margin-bottom: 0;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #f7fafc;
+      font-weight: 700;
+      margin: 24px 0 10px;
+    }
+
+    h1 { font-size: 20px; }
+    h2 { font-size: 17px; }
+    h3 { font-size: 15px; }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    a {
+      color: #63b3ed;
+    }
+
+    strong {
+      color: #f7fafc;
+    }
+
+    code {
+      background-color: #2d3748;
+      color: #f6ad55;
+      padding: 1px 5px;
+      border-radius: 4px;
       font-size: 13px;
+    }
+
+    pre {
+      background-color: #2d3748;
+      border-radius: 8px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      margin: 0 0 14px;
+
+      code {
+        background-color: transparent;
+        color: #e2e8f0;
+        padding: 0;
+      }
+    }
+
+    blockquote {
+      border-left: 3px solid #4a5568;
+      margin: 0 0 14px;
+      padding: 4px 0 4px 14px;
+      color: #a0aec0;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 0 0 14px;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #4a5568;
+      padding: 6px 10px;
+      text-align: left;
+    }
+
+    th {
+      color: #f7fafc;
+      background-color: #2d3748;
     }
   }
 }

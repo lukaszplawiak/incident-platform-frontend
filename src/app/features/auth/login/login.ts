@@ -130,11 +130,21 @@ export class Login {
     // never actually matched anything, since the interceptor's messages
     // don't contain the numeric status).
     if (err instanceof ApiError) {
+      // Fixed: a separate `err.status === 423` branch here ("Account
+      // locked...") was unreachable — AuthService.login() returns 401 +
+      // ErrorCodes.UNAUTHORIZED for a locked account, the exact same
+      // status and error code as a wrong password, deliberately (see
+      // that method's own comment on preventing user enumeration). This
+      // isn't backend caution worth working around: OWASP's own
+      // Authentication Cheat Sheet treats identical status/body/timing
+      // for these cases as the correct behavior, discussing account
+      // lockout in the same breath as enumeration prevention, not as an
+      // exception to it. Removed rather than "fixed" to 401, since a
+      // second branch checking the same status would just be dead code
+      // with extra steps — there is no signal in the response that
+      // could ever distinguish the two cases from here.
       if (err.status === 401) {
         return 'Invalid email or password. Please try again.';
-      }
-      if (err.status === 423) {
-        return 'Account locked due to too many failed attempts. Please try again later.';
       }
       if (err.status === 0) {
         return 'Cannot connect to the server. Check your network connection.';

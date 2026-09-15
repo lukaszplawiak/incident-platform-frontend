@@ -121,3 +121,13 @@ export interface SortState {
   column: SortColumn;
   direction: SortDirection;
 }
+
+/** PATCH /api/v1/incidents/{id}/assignee — mirrors backend AssignIncidentRequest.java. */
+export interface AssignIncidentRequest {
+  userId: string;
+}
+
+/** PATCH /api/v1/incidents/{id}/team — mirrors backend AssignTeamRequest.java. */
+export interface AssignTeamRequest {
+  teamId: string;
+}

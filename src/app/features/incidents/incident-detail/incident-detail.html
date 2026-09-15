@@ -76,6 +76,13 @@
         </div>
 
         <div class="incident-detail__meta-group">
+          <span class="incident-detail__meta-label">Assigned To</span>
+          <span class="incident-detail__meta-value">
+            {{ assigneeName(inc.assignedTo) }}
+          </span>
+        </div>
+
+        <div class="incident-detail__meta-group">
           <span class="incident-detail__meta-label">Created At</span>
           <span class="incident-detail__meta-value">
             {{ inc.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}
@@ -128,6 +135,63 @@
         }
 
       </div>
+
+      @if (canManageIncidents()) {
+        <div class="incident-detail__assignment">
+          <h2 class="incident-detail__assignment-title">Assignment</h2>
+
+          <div class="incident-detail__assignment-row">
+            @if (inc.teamId) {
+              <select
+                class="incident-detail__select"
+                aria-label="Assign to user"
+                [value]="selectedAssigneeId()"
+                (change)="selectedAssigneeId.set($any($event.target).value)">
+                <option value="">— Select user —</option>
+                @for (member of teamMembers(); track member.userId) {
+                  <option [value]="member.userId">{{ member.email }}</option>
+                }
+              </select>
+              <button
+                class="incident-detail__btn incident-detail__btn--assign"
+                [disabled]="!selectedAssigneeId()"
+                (click)="onAssign()">
+                Assign
+              </button>
+            } @else {
+              <span class="incident-detail__assignment-hint">
+                Assign a team below to choose who from that team to assign this to.
+              </span>
+            }
+          </div>
+
+          <div class="incident-detail__assignment-row">
+            <select
+              class="incident-detail__select"
+              aria-label="Assign team"
+              [value]="selectedTeamId()"
+              (change)="selectedTeamId.set($any($event.target).value)">
+              <option value="">— Select team —</option>
+              @for (team of teams(); track team.id) {
+                <option [value]="team.id">{{ team.name }}</option>
+              }
+            </select>
+            <button
+              class="incident-detail__btn incident-detail__btn--assign"
+              [disabled]="!selectedTeamId()"
+              (click)="onAssignTeam()">
+              Assign team
+            </button>
+            @if (inc.teamId) {
+              <button
+                class="incident-detail__btn incident-detail__btn--close"
+                (click)="onUnassignTeam()">
+                Unassign team
+              </button>
+            }
+          </div>
+        </div>
+      }
 
       <app-incident-audit
         [events]="auditEvents()"

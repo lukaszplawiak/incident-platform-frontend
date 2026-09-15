@@ -66,6 +66,19 @@ export class AuthService {
     this.roles().includes('ROLE_ADMIN')
   );
 
+  /**
+   * True for ROLE_RESPONDER or ROLE_ADMIN — matches the exact role
+   * requirement on incident-service's own assignee/team endpoints
+   * (@PreAuthorize("hasRole('RESPONDER') or hasRole('ADMIN')")).
+   * Introduced so incident-detail can hide assign/unassign actions a
+   * user's role would get a 403 from anyway, rather than checking
+   * roles().includes('ROLE_RESPONDER') inline wherever this distinction
+   * is needed.
+   */
+  readonly canManageIncidents = computed(() =>
+    this.isAdmin() || this.roles().includes('ROLE_RESPONDER')
+  );
+
   // ── Session countdown (same pattern as before — toSignal from interval) ─────
 
   readonly sessionRemainingMs = toSignal(

@@ -10,6 +10,8 @@ import {
   IncidentStatus,
   PageResponse,
   UpdateStatusRequest,
+  AssignIncidentRequest,
+  AssignTeamRequest,
   SortColumn,
   SortDirection,
   SortState
@@ -154,6 +156,109 @@ export class IncidentService {
           id,
           attemptedStatus: request.status
         });
+      }
+    });
+  }
+
+  /**
+   * PATCH /{id}/assignee — assigns the incident to a user. Backend
+   * accepts any userId (ROLE_RESPONDER/ROLE_ADMIN only) — this service
+   * doesn't further restrict which users can be chosen; the calling
+   * component decides where its candidate list comes from.
+   *
+   * No optimistic update, unlike updateStatus — there's no single
+   * "obviously correct" value to show immediately (the display name for
+   * a bare userId isn't available client-side), so this simply waits
+   * for the real response.
+   */
+  assignIncident(id: string, request: AssignIncidentRequest): void {
+    this.logger.info('Assigning incident', { id, userId: request.userId });
+
+    this.http.patch<Incident>(
+      `${this.apiUrl}/${id}/assignee`,
+      request
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this._incidents.update(incidents =>
+          incidents.map(i => i.id === updated.id ? updated : i)
+        );
+        if (this._selectedIncident()?.id === updated.id) {
+          this._selectedIncident.set(updated);
+        }
+        this.toastService.success('Incident assigned');
+        this.logger.info('Incident assigned', { id, userId: request.userId });
+      },
+      error: (err: Error) => {
+        this.toastService.error(err.message);
+        this.logger.error('Failed to assign incident', err, {
+          id, userId: request.userId
+        });
+      }
+    });
+  }
+
+  /**
+   * PATCH /{id}/team — assigns a team to the incident. Backend requires
+   * the caller be a member of the target team unless ROLE_ADMIN,
+   * returning 403 otherwise — surfaced here the same way any other
+   * error is, via the toast in the error branch below.
+   */
+  assignTeam(id: string, request: AssignTeamRequest): void {
+    this.logger.info('Assigning team to incident', { id, teamId: request.teamId });
+
+    this.http.patch<Incident>(
+      `${this.apiUrl}/${id}/team`,
+      request
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this._incidents.update(incidents =>
+          incidents.map(i => i.id === updated.id ? updated : i)
+        );
+        if (this._selectedIncident()?.id === updated.id) {
+          this._selectedIncident.set(updated);
+        }
+        this.toastService.success('Team assigned');
+        this.logger.info('Team assigned to incident', { id, teamId: request.teamId });
+      },
+      error: (err: Error) => {
+        this.toastService.error(err.message);
+        this.logger.error('Failed to assign team', err, {
+          id, teamId: request.teamId
+        });
+      }
+    });
+  }
+
+  /**
+   * DELETE /{id}/team — removes the incident's team assignment. Same
+   * membership restriction as assignTeam, applied to the incident's
+   * current team.
+   */
+  unassignTeam(id: string): void {
+    this.logger.info('Unassigning team from incident', { id });
+
+    this.http.delete<Incident>(
+      `${this.apiUrl}/${id}/team`
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this._incidents.update(incidents =>
+          incidents.map(i => i.id === updated.id ? updated : i)
+        );
+        if (this._selectedIncident()?.id === updated.id) {
+          this._selectedIncident.set(updated);
+        }
+        this.toastService.success('Team unassigned');
+        this.logger.info('Team unassigned from incident', { id });
+      },
+      error: (err: Error) => {
+        this.toastService.error(err.message);
+        this.logger.error('Failed to unassign team', err, { id });
       }
     });
   }

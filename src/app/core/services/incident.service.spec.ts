@@ -500,11 +500,167 @@ describe('IncidentService', () => {
       expect(service.incidents().find((i) => i.id === 'i-1')?.status).toBe('OPEN');
     });
 
-    it('shows error toast when server returns error', () => {
+     it('shows error toast when server returns error', () => {
       service.updateStatus('i-1', { status: 'ACKNOWLEDGED' });
       httpMock.expectOne(`${API_URL}/i-1/status`).flush(
         {},
         { status: 409, statusText: 'Conflict' }
+      );
+
+      expect(mockToast.error).toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // assignIncident / assignTeam / unassignTeam
+  // ──────────────────────────────────────────────────────────────────────────
+  // Covers backlog #7 — incident/team assignment. No optimistic update here
+  // (unlike updateStatus), so these tests don't check pre-response state,
+  // only the request sent and the signal state after the response arrives.
+
+  describe('assignIncident', () => {
+    beforeEach(() => {
+      service.loadIncidents();
+      httpMock.expectOne((r) => r.url === API_URL).flush(
+        buildPage([buildIncident({ id: 'i-1', assignedTo: null })])
+      );
+    });
+
+    it('sends PATCH request to /incidents/{id}/assignee', () => {
+      service.assignIncident('i-1', { userId: 'user-42' });
+
+      const req = httpMock.expectOne(`${API_URL}/i-1/assignee`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ userId: 'user-42' });
+      req.flush(buildIncident({ id: 'i-1', assignedTo: 'user-42' }));
+    });
+
+    it('updates the incident in the list with the server response', () => {
+      service.assignIncident('i-1', { userId: 'user-42' });
+      httpMock.expectOne(`${API_URL}/i-1/assignee`).flush(
+        buildIncident({ id: 'i-1', assignedTo: 'user-42' })
+      );
+
+      expect(service.incidents().find((i) => i.id === 'i-1')?.assignedTo).toBe('user-42');
+    });
+
+    it('updates selectedIncident when it matches the assigned id', () => {
+      service.loadIncident('i-1');
+      httpMock.expectOne(`${API_URL}/i-1`).flush(buildIncident({ id: 'i-1', assignedTo: null }));
+
+      service.assignIncident('i-1', { userId: 'user-42' });
+      httpMock.expectOne(`${API_URL}/i-1/assignee`).flush(
+        buildIncident({ id: 'i-1', assignedTo: 'user-42' })
+      );
+
+      expect(service.selectedIncident()?.assignedTo).toBe('user-42');
+    });
+
+    it('shows success toast after assignment', () => {
+      service.assignIncident('i-1', { userId: 'user-42' });
+      httpMock.expectOne(`${API_URL}/i-1/assignee`).flush(
+        buildIncident({ id: 'i-1', assignedTo: 'user-42' })
+      );
+
+      expect(mockToast.success).toHaveBeenCalled();
+    });
+
+    it('shows error toast when server returns error', () => {
+      service.assignIncident('i-1', { userId: 'user-42' });
+      httpMock.expectOne(`${API_URL}/i-1/assignee`).flush(
+        {},
+        { status: 400, statusText: 'Bad Request' }
+      );
+
+      expect(mockToast.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('assignTeam', () => {
+    beforeEach(() => {
+      service.loadIncidents();
+      httpMock.expectOne((r) => r.url === API_URL).flush(
+        buildPage([buildIncident({ id: 'i-1', teamId: null })])
+      );
+    });
+
+    it('sends PATCH request to /incidents/{id}/team', () => {
+      service.assignTeam('i-1', { teamId: 'team-9' });
+
+      const req = httpMock.expectOne(`${API_URL}/i-1/team`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ teamId: 'team-9' });
+      req.flush(buildIncident({ id: 'i-1', teamId: 'team-9' }));
+    });
+
+    it('updates the incident in the list with the server response', () => {
+      service.assignTeam('i-1', { teamId: 'team-9' });
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        buildIncident({ id: 'i-1', teamId: 'team-9' })
+      );
+
+      expect(service.incidents().find((i) => i.id === 'i-1')?.teamId).toBe('team-9');
+    });
+
+    it('shows success toast after team assignment', () => {
+      service.assignTeam('i-1', { teamId: 'team-9' });
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        buildIncident({ id: 'i-1', teamId: 'team-9' })
+      );
+
+      expect(mockToast.success).toHaveBeenCalled();
+    });
+
+    it('shows error toast on 403 (caller not a member of the target team)', () => {
+      service.assignTeam('i-1', { teamId: 'team-9' });
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        {},
+        { status: 403, statusText: 'Forbidden' }
+      );
+
+      expect(mockToast.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('unassignTeam', () => {
+    beforeEach(() => {
+      service.loadIncidents();
+      httpMock.expectOne((r) => r.url === API_URL).flush(
+        buildPage([buildIncident({ id: 'i-1', teamId: 'team-9' })])
+      );
+    });
+
+    it('sends DELETE request to /incidents/{id}/team', () => {
+      service.unassignTeam('i-1');
+
+      const req = httpMock.expectOne(`${API_URL}/i-1/team`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(buildIncident({ id: 'i-1', teamId: null }));
+    });
+
+    it('updates the incident in the list with the server response', () => {
+      service.unassignTeam('i-1');
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        buildIncident({ id: 'i-1', teamId: null })
+      );
+
+      expect(service.incidents().find((i) => i.id === 'i-1')?.teamId).toBeNull();
+    });
+
+    it('shows success toast after unassigning', () => {
+      service.unassignTeam('i-1');
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        buildIncident({ id: 'i-1', teamId: null })
+      );
+
+      expect(mockToast.success).toHaveBeenCalled();
+    });
+
+    it('shows error toast when server returns error', () => {
+      service.unassignTeam('i-1');
+      httpMock.expectOne(`${API_URL}/i-1/team`).flush(
+        {},
+        { status: 403, statusText: 'Forbidden' }
       );
 
       expect(mockToast.error).toHaveBeenCalled();

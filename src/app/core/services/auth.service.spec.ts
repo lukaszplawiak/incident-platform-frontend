@@ -286,6 +286,64 @@ describe('AuthService', () => {
     });
   });
 
+  /**
+   * Covers the fix in incident-detail.ts (backlog #7 — incident/team
+   * assignment UI). Matches incident-service's own @PreAuthorize
+   * requirement on the assignee/team endpoints exactly
+   * (hasRole('RESPONDER') or hasRole('ADMIN')) — introduced so
+   * incident-detail can hide those actions for a role that would get a
+   * 403 from the backend anyway, rather than checking
+   * roles().includes('ROLE_RESPONDER') inline there.
+   */
+  describe('canManageIncidents', () => {
+    it('returns false when not logged in', () => {
+      expect(service.canManageIncidents()).toBe(false);
+    });
+
+    it('returns true when user has ROLE_ADMIN', () => {
+      service.login({ email: 'user@acme.com', password: 'secret' }, 'acme-corp').subscribe();
+      httpMock.expectOne(LOGIN_URL).flush(successLoginResponse(validToken()));
+
+      expect(service.canManageIncidents()).toBe(true);
+    });
+
+    it('returns true when user has ROLE_RESPONDER', () => {
+      const responderToken = makeJwt({
+        sub: 'user-abc',
+        jti: 'jti-test-789',
+        tenantId: 'acme-corp',
+        email: 'user@acme.com',
+        roles: ['ROLE_RESPONDER'],
+        teamIds: ['team-1'],
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+
+      service.login({ email: 'user@acme.com', password: 'secret' }, 'acme-corp').subscribe();
+      httpMock.expectOne(LOGIN_URL).flush(successLoginResponse(responderToken));
+
+      expect(service.canManageIncidents()).toBe(true);
+    });
+
+    it('returns false when user has neither ROLE_ADMIN nor ROLE_RESPONDER', () => {
+      const noRoleToken = makeJwt({
+        sub: 'user-abc',
+        jti: 'jti-test-000',
+        tenantId: 'acme-corp',
+        email: 'user@acme.com',
+        roles: [],
+        teamIds: [],
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+
+      service.login({ email: 'user@acme.com', password: 'secret' }, 'acme-corp').subscribe();
+      httpMock.expectOne(LOGIN_URL).flush(successLoginResponse(noRoleToken));
+
+      expect(service.canManageIncidents()).toBe(false);
+    });
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // getToken
   // ──────────────────────────────────────────────────────────────────────────

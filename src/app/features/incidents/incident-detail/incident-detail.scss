@@ -113,6 +113,16 @@
       background-color: #4a5568;
       color: #e2e8f0;
     }
+
+    &--assign {
+      background-color: #2b6cb0;
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   }
 
   &__meta {
@@ -134,7 +144,48 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-    
+
+  &__assignment {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #4a5568;
+  }
+
+  &__assignment-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f7fafc;
+    margin: 0 0 12px;
+  }
+
+  &__assignment-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__select {
+    flex: 1;
+    max-width: 280px;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  &__assignment-hint {
+    font-size: 13px;
+    color: #718096;
+    font-style: italic;
+  }
+
 }
 
 @keyframes spin {

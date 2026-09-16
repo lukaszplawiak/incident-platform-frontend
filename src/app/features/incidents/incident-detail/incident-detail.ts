@@ -142,6 +142,14 @@ export class IncidentDetail implements OnInit {
     this.incidentService.unassignTeam(this.id());
   }
 
+  onPostmortemSave(content: string): void {
+    this.incidentService.updatePostmortemContent(this.id(), { content });
+  }
+
+  onPostmortemMarkReviewed(): void {
+    this.incidentService.markPostmortemReviewed(this.id());
+  }
+
   onBack(): void {
     this.router.navigate(['/incidents']);
   }

@@ -1,4 +1,4 @@
-import { Component, Input, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
@@ -18,7 +18,52 @@ export class IncidentPostmortem {
   @Input({ required: true }) postmortem!: Postmortem;
   @Input() loading = false;
 
+  /**
+   * Matches the exact role requirement on the backend's own
+   * PostmortemController (@PreAuthorize("hasRole('RESPONDER') or
+   * hasRole('ADMIN')") on both updateContent and markReviewed) — hides
+   * the Edit/Mark as Reviewed actions for a role that would get a 403
+   * from the backend anyway, the same way incident-detail's own
+   * Assignment section is hidden via canManageIncidents.
+   */
+  @Input() canManage = false;
+
+  /**
+   * This component stays a "dumb", presentation-only component — it has
+   * no IncidentService dependency and makes no HTTP calls itself,
+   * matching IncidentAudit's own pattern and the rest of
+   * incident-detail's architecture (the parent owns every mutation
+   * through IncidentService; children only emit that a mutation was
+   * requested). save/markReviewed are handled by IncidentDetail, which
+   * calls IncidentService.updatePostmortemContent()/
+   * markPostmortemReviewed() and updates the postmortem signal those
+   * calls flow back through.
+   */
+  @Output() save = new EventEmitter<string>();
+  @Output() markReviewed = new EventEmitter<void>();
+
   private readonly sanitizer = inject(DomSanitizer);
+
+  readonly editing = signal(false);
+  readonly draftContent = signal('');
+
+  startEdit(): void {
+    this.draftContent.set(this.postmortem.content ?? '');
+    this.editing.set(true);
+  }
+
+  cancelEdit(): void {
+    this.editing.set(false);
+  }
+
+  onSave(): void {
+    this.save.emit(this.draftContent());
+    this.editing.set(false);
+  }
+
+  onMarkReviewed(): void {
+    this.markReviewed.emit();
+  }
 
   /**
    * Fixed: this component previously read seven separate section fields

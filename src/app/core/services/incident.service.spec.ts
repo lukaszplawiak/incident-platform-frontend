@@ -6,6 +6,7 @@ import { IncidentService } from './incident.service';
 import { LoggerService } from './logger.service';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { Incident, IncidentFilter, PageResponse } from '../models/incident.model';
+import { Postmortem } from '../models/postmortem.model';
 import { environment } from '../../../environments/environment';
 
 // ─── Test data factories ──────────────────────────────────────────────────────
@@ -815,6 +816,109 @@ describe('IncidentService', () => {
       service.clearError();
 
       expect(service.error()).toBeNull();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // updatePostmortemContent / markPostmortemReviewed
+  // ──────────────────────────────────────────────────────────────────────────
+  // Covers backlog #8 — postmortem edit/review.
+
+  function buildPostmortem(overrides: Partial<Postmortem> = {}): Postmortem {
+    return {
+      id: 'pm-1',
+      incidentId: 'i-1',
+      tenantId: 'acme-corp',
+      incidentTitle: 'Database outage',
+      incidentSeverity: 'HIGH',
+      incidentOpenedAt: '2026-01-01T00:00:00Z',
+      incidentResolvedAt: '2026-01-01T01:00:00Z',
+      durationMinutes: 60,
+      status: 'DRAFT',
+      createdAt: '2026-01-01T01:00:00Z',
+      updatedAt: '2026-01-01T01:00:00Z',
+      content: 'Original content',
+      errorMessage: null,
+      ...overrides,
+    };
+  }
+
+  const POSTMORTEM_URL = `${environment.apiUrl}/api/v1/postmortems/incident/i-1`;
+
+  describe('updatePostmortemContent', () => {
+    it('sends PATCH request with the new content', () => {
+      service.updatePostmortemContent('i-1', { content: 'Edited content' });
+
+      const req = httpMock.expectOne(POSTMORTEM_URL);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ content: 'Edited content' });
+      req.flush(buildPostmortem({ content: 'Edited content' }));
+    });
+
+    it('updates the postmortem signal with the server response', () => {
+      service.updatePostmortemContent('i-1', { content: 'Edited content' });
+      httpMock.expectOne(POSTMORTEM_URL).flush(
+        buildPostmortem({ content: 'Edited content' })
+      );
+
+      expect(service.postmortem()?.content).toBe('Edited content');
+    });
+
+    it('shows success toast after updating', () => {
+      service.updatePostmortemContent('i-1', { content: 'Edited content' });
+      httpMock.expectOne(POSTMORTEM_URL).flush(
+        buildPostmortem({ content: 'Edited content' })
+      );
+
+      expect(mockToast.success).toHaveBeenCalled();
+    });
+
+    it('shows error toast when server returns error', () => {
+      service.updatePostmortemContent('i-1', { content: '' });
+      httpMock.expectOne(POSTMORTEM_URL).flush(
+        {},
+        { status: 400, statusText: 'Bad Request' }
+      );
+
+      expect(mockToast.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('markPostmortemReviewed', () => {
+    it('sends POST request to /review', () => {
+      service.markPostmortemReviewed('i-1');
+
+      const req = httpMock.expectOne(`${POSTMORTEM_URL}/review`);
+      expect(req.request.method).toBe('POST');
+      req.flush(buildPostmortem({ status: 'REVIEWED' }));
+    });
+
+    it('updates the postmortem signal with the server response', () => {
+      service.markPostmortemReviewed('i-1');
+      httpMock.expectOne(`${POSTMORTEM_URL}/review`).flush(
+        buildPostmortem({ status: 'REVIEWED' })
+      );
+
+      expect(service.postmortem()?.status).toBe('REVIEWED');
+    });
+
+    it('shows success toast after marking reviewed', () => {
+      service.markPostmortemReviewed('i-1');
+      httpMock.expectOne(`${POSTMORTEM_URL}/review`).flush(
+        buildPostmortem({ status: 'REVIEWED' })
+      );
+
+      expect(mockToast.success).toHaveBeenCalled();
+    });
+
+    it('shows error toast on 409 (not currently DRAFT)', () => {
+      service.markPostmortemReviewed('i-1');
+      httpMock.expectOne(`${POSTMORTEM_URL}/review`).flush(
+        {},
+        { status: 409, statusText: 'Conflict' }
+      );
+
+      expect(mockToast.error).toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DomSanitizer } from '@angular/platform-browser';
 import { SecurityContext } from '@angular/core';
+import { vi } from 'vitest';
 
 import { IncidentPostmortem } from './incident-postmortem';
 import { Postmortem, PostmortemStatus } from '../../../core/models/postmortem.model';
@@ -121,6 +122,65 @@ describe('IncidentPostmortem', () => {
     it('gives PERMANENTLY_FAILED a distinct label from the retryable FAILED state', () => {
       expect(component.getStatusLabel('PERMANENTLY_FAILED'))
         .not.toEqual(component.getStatusLabel('FAILED'));
+    });
+  });
+
+  /**
+   * Covers backlog #8 — postmortem edit/review. IncidentPostmortem
+   * stays a "dumb" component here (see its own comment) — these tests
+   * only check that startEdit/cancelEdit/onSave/onMarkReviewed manage
+   * local state and emit correctly; the actual PATCH/POST calls those
+   * emissions trigger are IncidentDetail's responsibility, covered in
+   * incident-detail.spec.ts instead.
+   */
+  describe('editing', () => {
+    it('startEdit seeds draftContent from the current postmortem content', () => {
+      component.postmortem = { ...basePostmortem, content: 'Original content' };
+      component.startEdit();
+
+      expect(component.editing()).toBe(true);
+      expect(component.draftContent()).toBe('Original content');
+    });
+
+    it('startEdit seeds an empty draft when content is null', () => {
+      component.postmortem = { ...basePostmortem, content: null };
+      component.startEdit();
+
+      expect(component.draftContent()).toBe('');
+    });
+
+    it('cancelEdit exits edit mode without emitting save', () => {
+      component.postmortem = { ...basePostmortem, content: 'Original content' };
+      const saveSpy = vi.fn();
+      component.save.subscribe(saveSpy);
+
+      component.startEdit();
+      component.cancelEdit();
+
+      expect(component.editing()).toBe(false);
+      expect(saveSpy).not.toHaveBeenCalled();
+    });
+
+    it('onSave emits the current draft content and exits edit mode', () => {
+      component.postmortem = { ...basePostmortem, content: 'Original content' };
+      const saveSpy = vi.fn();
+      component.save.subscribe(saveSpy);
+
+      component.startEdit();
+      component.draftContent.set('Edited content');
+      component.onSave();
+
+      expect(saveSpy).toHaveBeenCalledWith('Edited content');
+      expect(component.editing()).toBe(false);
+    });
+
+    it('onMarkReviewed emits markReviewed', () => {
+      const markReviewedSpy = vi.fn();
+      component.markReviewed.subscribe(markReviewedSpy);
+
+      component.onMarkReviewed();
+
+      expect(markReviewedSpy).toHaveBeenCalled();
     });
   });
 });

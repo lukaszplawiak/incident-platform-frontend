@@ -66,6 +66,8 @@ describe('IncidentDetail', () => {
     assignIncident: ReturnType<typeof vi.fn>;
     assignTeam: ReturnType<typeof vi.fn>;
     unassignTeam: ReturnType<typeof vi.fn>;
+    updatePostmortemContent: ReturnType<typeof vi.fn>;
+    markPostmortemReviewed: ReturnType<typeof vi.fn>;
   };
 
   let mockTeamService: {
@@ -106,6 +108,8 @@ describe('IncidentDetail', () => {
       assignIncident: vi.fn(),
       assignTeam: vi.fn(),
       unassignTeam: vi.fn(),
+      updatePostmortemContent: vi.fn(),
+      markPostmortemReviewed: vi.fn(),
     };
 
     mockTeamService = {
@@ -311,6 +315,28 @@ describe('IncidentDetail', () => {
       fixture.detectChanges();
 
       expect(component.assigneeName('someone-else')).toBe('—');
+    });
+  });
+
+  describe('onPostmortemSave', () => {
+    it('calls updatePostmortemContent with the incident id and new content', () => {
+      fixture.detectChanges();
+
+      component.onPostmortemSave('Edited content');
+
+      expect(mockIncidentService.updatePostmortemContent).toHaveBeenCalledWith(
+        'i-1', { content: 'Edited content' }
+      );
+    });
+  });
+
+  describe('onPostmortemMarkReviewed', () => {
+    it('calls markPostmortemReviewed with the incident id', () => {
+      fixture.detectChanges();
+
+      component.onPostmortemMarkReviewed();
+
+      expect(mockIncidentService.markPostmortemReviewed).toHaveBeenCalledWith('i-1');
     });
   });
 });

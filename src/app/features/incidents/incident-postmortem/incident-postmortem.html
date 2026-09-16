@@ -41,8 +41,39 @@
       </p>
     }
 
-    @if (renderedContent) {
-      <div class="postmortem__content" [innerHTML]="renderedContent"></div>
+    @if (editing()) {
+      <textarea
+        class="postmortem__editor"
+        aria-label="Postmortem content (markdown)"
+        rows="16"
+        [value]="draftContent()"
+        (input)="draftContent.set($any($event.target).value)">
+      </textarea>
+      <div class="postmortem__actions">
+        <button class="postmortem__btn postmortem__btn--save" (click)="onSave()">
+          Save
+        </button>
+        <button class="postmortem__btn postmortem__btn--cancel" (click)="cancelEdit()">
+          Cancel
+        </button>
+      </div>
+    } @else {
+      @if (renderedContent) {
+        <div class="postmortem__content" [innerHTML]="renderedContent"></div>
+      }
+
+      @if (canManage) {
+        <div class="postmortem__actions">
+          <button class="postmortem__btn postmortem__btn--edit" (click)="startEdit()">
+            Edit
+          </button>
+          @if (postmortem.status === 'DRAFT') {
+            <button class="postmortem__btn postmortem__btn--review" (click)="onMarkReviewed()">
+              Mark as Reviewed
+            </button>
+          }
+        </div>
+      }
     }
 
   }

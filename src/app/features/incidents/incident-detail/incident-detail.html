@@ -200,7 +200,10 @@
     @if (postmortem()) {
       <app-incident-postmortem
         [postmortem]="postmortem()!"
-        [loading]="postmortemLoading()" />
+        [loading]="postmortemLoading()"
+        [canManage]="canManageIncidents()"
+        (save)="onPostmortemSave($event)"
+        (markReviewed)="onPostmortemMarkReviewed()" />
 }
 
     </div>

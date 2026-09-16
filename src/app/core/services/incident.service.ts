@@ -17,7 +17,7 @@ import {
   SortState
 } from '../models/incident.model';
 import { AuditEvent } from '../models/audit-event.model';
-import { Postmortem } from '../models/postmortem.model';
+import { Postmortem, UpdatePostmortemRequest } from '../models/postmortem.model';
 
 @Injectable({
   providedIn: 'root'
@@ -303,6 +303,62 @@ export class IncidentService {
       error: () => {
         this._postmortemLoading.set(false);
         this.logger.debug('Postmortem not available', { incidentId });
+      }
+    });
+  }
+
+  /**
+   * PATCH /postmortems/incident/{id} — updates the postmortem's content.
+   * Backend allows this regardless of status (DRAFT or REVIEWED) — no
+   * client-side restriction added here to match, since there's none on
+   * the backend to mirror.
+   */
+  updatePostmortemContent(incidentId: string, request: UpdatePostmortemRequest): void {
+    this.logger.info('Updating postmortem content', { incidentId });
+
+    this.http.patch<Postmortem>(
+      `${environment.apiUrl}/api/v1/postmortems/incident/${incidentId}`,
+      request
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this._postmortem.set(updated);
+        this.toastService.success('Postmortem updated');
+        this.logger.info('Postmortem content updated', { incidentId });
+      },
+      error: (err: Error) => {
+        this.toastService.error(err.message);
+        this.logger.error('Failed to update postmortem content', err, { incidentId });
+      }
+    });
+  }
+
+  /**
+   * POST /postmortems/incident/{id}/review — marks the postmortem
+   * REVIEWED. Backend only allows this from DRAFT (409 otherwise) — the
+   * calling component is expected to only show this action for a DRAFT
+   * postmortem in the first place, but a 409 here (e.g. a stale view,
+   * or a second reviewer) surfaces as an ordinary error toast rather
+   * than a special case.
+   */
+  markPostmortemReviewed(incidentId: string): void {
+    this.logger.info('Marking postmortem reviewed', { incidentId });
+
+    this.http.post<Postmortem>(
+      `${environment.apiUrl}/api/v1/postmortems/incident/${incidentId}/review`,
+      {}
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this._postmortem.set(updated);
+        this.toastService.success('Postmortem marked as reviewed');
+        this.logger.info('Postmortem marked reviewed', { incidentId });
+      },
+      error: (err: Error) => {
+        this.toastService.error(err.message);
+        this.logger.error('Failed to mark postmortem reviewed', err, { incidentId });
       }
     });
   }

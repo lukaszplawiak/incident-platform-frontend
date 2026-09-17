@@ -8,6 +8,7 @@ import {
   CreateUserResponse,
   UpdateUserRolesRequest,
   UpdateUserStatusRequest,
+  ChangePasswordRequest,
 } from '../models/user.model';
 import { PageResponse } from '../models/incident.model';
 
@@ -94,5 +95,19 @@ export class UserService {
    */
   anonymizeUser(userId: string): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/${userId}/anonymize`, {});
+  }
+
+  /**
+   * PATCH /api/v1/users/me/password
+   * Changes the authenticated user's own password. No role requirement —
+   * any authenticated user. Requires the current password (backend
+   * rejects with 401 if it doesn't match — prevents an attacker with a
+   * stolen JWT, but not the password itself, from being able to change
+   * it). On success, auth-service invalidates every other active
+   * session's refresh token, deliberately leaving the one making this
+   * call untouched. Returns 204 No Content.
+   */
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    return this.http.patch<void>(`${this.baseUrl}/me/password`, request);
   }
 }

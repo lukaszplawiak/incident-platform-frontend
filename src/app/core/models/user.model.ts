@@ -49,6 +49,16 @@ export interface UpdateUserStatusRequest {
   active: boolean;
 }
 
+/**
+ * PATCH /api/v1/users/me/password — mirrors backend
+ * ChangePasswordRequest.java exactly. No role requirement on the
+ * backend — every authenticated user can change their own password.
+ */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 /** All available roles in the system. */
 export const USER_ROLES = ['ROLE_ADMIN', 'ROLE_RESPONDER'] as const;
 export type UserRole = typeof USER_ROLES[number];

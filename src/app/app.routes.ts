@@ -83,7 +83,7 @@ export const routes: Routes = [
     title: 'Incident Detail — Incident Platform'
   },
 
-  {
+   {
     // authGuard, not adminGuard — every user manages their own MFA,
     // this has nothing to do with the ROLE_ADMIN/ROLE_RESPONDER distinction.
     path: 'mfa-settings',
@@ -92,6 +92,18 @@ export const routes: Routes = [
       import('./features/account/mfa-settings/mfa-settings')
         .then(m => m.MfaSettings),
     title: 'Account Security — Incident Platform'
+  },
+
+  {
+    // authGuard, not adminGuard — same rationale as mfa-settings above:
+    // PATCH /users/me/password has no @PreAuthorize on the backend at
+    // all, so every authenticated user can reach this regardless of role.
+    path: 'change-password',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/account/change-password/change-password')
+        .then(m => m.ChangePassword),
+    title: 'Change Password — Incident Platform'
   },
 
   // ── Admin routes (ROLE_ADMIN required) ────────────────────────────────────

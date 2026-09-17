@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -47,6 +48,7 @@ function setup(user: User = buildUser()) {
       { provide: AuthService, useValue: authServiceMock },
       { provide: UserService, useValue: userServiceMock },
       { provide: ToastService, useValue: toastServiceMock },
+      provideRouter([]),
     ],
   });
 

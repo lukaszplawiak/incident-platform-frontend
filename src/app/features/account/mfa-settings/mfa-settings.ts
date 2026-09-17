@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import {
   FormBuilder,
   FormGroup,
@@ -27,7 +28,7 @@ import { MfaSetupResponse, MfaBackupCodesStatus } from '../../../core/models/aut
 @Component({
   selector: 'app-mfa-settings',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './mfa-settings.html',
   styleUrl: './mfa-settings.scss',
 })

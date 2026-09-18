@@ -100,6 +100,44 @@
   &--manager { background: #652b19; color: #f6ad55; }
 }
 
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+
+  &--active { background: #1c4532; color: #68d391; }
+  &--superseded { background: #2a4365; color: #63b3ed; }
+  &--cancelled { background: #4a5568; color: #cbd5e0; }
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 32px 0 16px;
+
+  .section-title {
+    margin: 0;
+  }
+}
+
+.history-toggle {
+  background: none;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  color: #a0aec0;
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: #e2e8f0;
+    border-color: #63b3ed;
+  }
+}
+
 // ── Table ─────────────────────────────────────────────────────────────────────
 
 .table {

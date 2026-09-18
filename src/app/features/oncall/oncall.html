@@ -69,7 +69,16 @@
 
 
   <!-- ── Schedules table ────────────────────────────────────────────────── -->
-  <h2 class="section-title">Schedule</h2>
+  <div class="section-header">
+    <h2 class="section-title">Schedule</h2>
+    <button class="history-toggle" (click)="toggleHistory()">
+      @if (showHistory()) {
+        Hide history
+      } @else {
+        Show history (superseded / cancelled)
+      }
+    </button>
+  </div>
 
   @if (loading()) {
     <div class="loading-state">Loading schedules...</div>
@@ -79,7 +88,7 @@
       @if (isAdmin()) { Add the first one to configure who gets notified during an incident. }
     </div>
   } @else {
-    <table class="table" aria-label="On-call schedule">
+       <table class="table" aria-label="On-call schedule">
       <thead>
         <tr>
           <th>User</th>
@@ -88,6 +97,7 @@
           <th>Starts</th>
           <th>Ends</th>
           <th>Notes</th>
+          @if (showHistory()) { <th>Status</th> }
           @if (isAdmin()) { <th class="col-actions">Actions</th> }
         </tr>
       </thead>
@@ -107,19 +117,30 @@
             <td class="cell-date">{{ schedule.startsAt | date:'dd MMM yyyy, HH:mm' }}</td>
             <td class="cell-date">{{ schedule.endsAt | date:'dd MMM yyyy, HH:mm' }}</td>
             <td class="cell-notes">{{ schedule.notes || '—' }}</td>
+            @if (showHistory()) {
+              <td>
+                <span class="status-badge" [class]="getStatusClass(schedule.status)">
+                  {{ getStatusLabel(schedule.status) }}
+                </span>
+              </td>
+            }
             @if (isAdmin()) {
               <td class="cell-actions">
-                @if (confirmingDelete() === schedule.id) {
-                  <span class="confirm-text">Delete?</span>
-                  <button class="action-btn action-btn--danger" (click)="deleteSchedule(schedule)">Yes</button>
-                  <button class="action-btn" (click)="cancelDelete()">No</button>
+                @if (schedule.status === 'ACTIVE') {
+                  @if (confirmingDelete() === schedule.id) {
+                    <span class="confirm-text">Delete?</span>
+                    <button class="action-btn action-btn--danger" (click)="deleteSchedule(schedule)">Yes</button>
+                    <button class="action-btn" (click)="cancelDelete()">No</button>
+                  } @else {
+                    <button
+                      class="action-btn action-btn--danger"
+                      title="Delete schedule"
+                      (click)="confirmDelete(schedule.id)">
+                      Delete
+                    </button>
+                  }
                 } @else {
-                  <button
-                    class="action-btn action-btn--danger"
-                    title="Delete schedule"
-                    (click)="confirmDelete(schedule.id)">
-                    Delete
-                  </button>
+                  <span class="cell-subtext">—</span>
                 }
               </td>
             }

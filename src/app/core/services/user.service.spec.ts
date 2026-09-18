@@ -136,11 +136,13 @@ describe('UserService', () => {
         email: 'new@acme.com',
         roles: ['ROLE_RESPONDER'],
       };
-      const response: CreateUserResponse = {
+        const response: CreateUserResponse = {
         userId: 'user-new',
+        tenantId: 'acme-corp',
         email: 'new@acme.com',
-        inviteToken: 'invite-token-abc',
-        expiresAt: '2026-07-27T00:00:00Z',
+        roles: ['ROLE_RESPONDER'],
+        active: true,
+        createdAt: '2026-07-27T00:00:00Z',
       };
 
       service.createUser(request).subscribe();
@@ -154,9 +156,11 @@ describe('UserService', () => {
     it('returns the CreateUserResponse', () => {
       const response: CreateUserResponse = {
         userId: 'user-new',
+        tenantId: 'acme-corp',
         email: 'new@acme.com',
-        inviteToken: 'invite-token-abc',
-        expiresAt: '2026-07-27T00:00:00Z',
+        roles: ['ROLE_RESPONDER'],
+        active: true,
+        createdAt: '2026-07-27T00:00:00Z',
       };
       let result: CreateUserResponse | undefined;
 
@@ -164,7 +168,7 @@ describe('UserService', () => {
         .subscribe(r => { result = r; });
       httpMock.expectOne(BASE_URL).flush(response);
 
-      expect(result?.inviteToken).toBe('invite-token-abc');
+      expect(result?.roles).toEqual(['ROLE_RESPONDER']);
     });
   });
 

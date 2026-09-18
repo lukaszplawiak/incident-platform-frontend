@@ -26,13 +26,24 @@ export interface CreateUserRequest {
 
 /**
  * Response from POST /api/v1/users.
- * inviteToken is a one-time token for the invited user to set their password.
+ *
+ * Fixed: previously { userId, email, inviteToken, expiresAt } — the
+ * pre-Outbox-Pattern shape. CreateUserResponse.java no longer sends
+ * either inviteToken or expiresAt: the invite email (with its one-time
+ * token) is sent directly to the invited user by InviteEmailScheduler,
+ * never passing through the admin's HTTP client — see that DTO's own
+ * Javadoc. Verified createUser()'s subscribe handler in users.ts
+ * ignores the response body entirely today (next: () => {...}), so this
+ * was a dormant type error rather than a live bug — but a real one, had
+ * any future code read response.inviteToken expecting a real value.
  */
 export interface CreateUserResponse {
   userId: string;
+  tenantId: string;
   email: string;
-  inviteToken: string;
-  expiresAt: string;
+  roles: string[];
+  active: boolean;
+  createdAt: string;
 }
 
 /**

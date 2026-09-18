@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { PageResponse } from '../models/incident.model';
 import {
   OncallSchedule,
+  OncallScheduleStatus,
   CreateOncallScheduleRequest,
   CurrentOncall,
 } from '../models/oncall.model';
@@ -21,9 +22,29 @@ export class OncallService {
    * GET /api/v1/oncall/schedules
    * Paginated list of schedule entries. ROLE_RESPONDER or ROLE_ADMIN.
    */
-  listSchedules(page = 0, size = 20): Observable<PageResponse<OncallSchedule>> {
+  /**
+   * GET /api/v1/oncall/schedules
+   * status is optional — omitted means no filter (every status),
+   * matching the backend's own null-means-no-filter convention. The
+   * default view in oncall.ts passes 'ACTIVE' explicitly rather than
+   * relying on any backend default, since the backend intentionally
+   * has none — see OncallScheduleController.getSchedules's own comment.
+   */
+  listSchedules(
+    page = 0,
+    size = 20,
+    status?: OncallScheduleStatus
+  ): Observable<PageResponse<OncallSchedule>> {
+    const params: Record<string, string> = {
+      page: page.toString(),
+      size: size.toString(),
+      sort: 'startsAt',
+    };
+    if (status) {
+      params['status'] = status;
+    }
     return this.http.get<PageResponse<OncallSchedule>>(`${this.baseUrl}/schedules`, {
-      params: { page: page.toString(), size: size.toString(), sort: 'startsAt' }
+      params
     });
   }
 

@@ -15,6 +15,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import {
   OncallSchedule,
+  OncallScheduleStatus,
   CurrentOncall,
   CreateOncallScheduleRequest,
   ONCALL_ROLES,
@@ -61,6 +62,15 @@ export class Oncall implements OnInit {
   readonly totalElements = signal(0);
   readonly currentPage = signal(0);
   readonly pageSize = 20;
+
+  /**
+   * Default view shows only ACTIVE schedules. The backend has no
+   * default of its own (omitting status means "every status" there) —
+   * see OncallService.listSchedules's own comment — so this is where
+   * "active by default" is actually decided. Toggled to show
+   * SUPERSEDED/CANCELLED history too.
+   */
+  readonly showHistory = signal(false);
 
   // ── Currently on-call (team-scoped, RESPONDER/ADMIN) ────────────────────────
 
@@ -110,7 +120,9 @@ export class Oncall implements OnInit {
 
   loadSchedules(): void {
     this.loading.set(true);
-    this.oncallService.listSchedules(this.currentPage(), this.pageSize).subscribe({
+    const status: OncallScheduleStatus | undefined =
+        this.showHistory() ? undefined : 'ACTIVE';
+    this.oncallService.listSchedules(this.currentPage(), this.pageSize, status).subscribe({
       next: page => {
         this.schedules.set(page.content);
         this.totalElements.set(page.totalElements);
@@ -121,6 +133,12 @@ export class Oncall implements OnInit {
         this.loading.set(false);
       }
     });
+  }
+
+  toggleHistory(): void {
+    this.showHistory.update(v => !v);
+    this.currentPage.set(0);
+    this.loadSchedules();
   }
 
   onTeamSelected(teamId: string): void {
@@ -303,6 +321,30 @@ export class Oncall implements OnInit {
   teamName(teamId: string | null): string {
     if (!teamId) return '—';
     return this.allTeams().find(t => t.id === teamId)?.name ?? '—';
+  }
+
+  /**
+   * Same Record<Status, string> pattern already used for
+   * PostmortemStatus (incident-postmortem.ts) — deliberately kept as
+   * plain presentation here, not fetched from or decided by the
+   * backend, which only ever sends the raw status string.
+   */
+  getStatusLabel(status: OncallScheduleStatus): string {
+    const labels: Record<OncallScheduleStatus, string> = {
+      'ACTIVE':     '✅ Active',
+      'SUPERSEDED': '↻ Superseded',
+      'CANCELLED':  '✕ Cancelled',
+    };
+    return labels[status];
+  }
+
+  getStatusClass(status: OncallScheduleStatus): string {
+    const classes: Record<OncallScheduleStatus, string> = {
+      'ACTIVE':     'status-badge--active',
+      'SUPERSEDED': 'status-badge--superseded',
+      'CANCELLED':  'status-badge--cancelled',
+    };
+    return classes[status];
   }
 
   trackByScheduleId(_index: number, schedule: OncallSchedule): string {

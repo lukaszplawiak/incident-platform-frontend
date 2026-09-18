@@ -24,6 +24,8 @@ function buildSchedule(overrides: Partial<OncallSchedule> = {}): OncallSchedule 
     endsAt: '2026-07-28T00:00:00Z',
     notes: null,
     createdAt: '2026-07-20T00:00:00Z',
+    status: 'ACTIVE',
+    supersedesId: null,
     ...overrides,
   };
 }
@@ -104,6 +106,29 @@ describe('OncallService', () => {
       const req = httpMock.expectOne(r => r.url === `${BASE_URL}/schedules`);
       expect(req.request.params.get('page')).toBe('0');
       expect(req.request.params.get('size')).toBe('20');
+      req.flush(buildPage([]));
+    });
+
+    /**
+     * The actual regression test for backlog #10: status is omitted
+     * entirely when not passed, matching the backend's own
+     * null-means-no-filter convention — this must NOT default to
+     * sending status=ACTIVE itself, since that decision belongs to the
+     * calling component (oncall.ts), not this service.
+     */
+    it('omits the status param when not provided', () => {
+      service.listSchedules().subscribe();
+
+      const req = httpMock.expectOne(r => r.url === `${BASE_URL}/schedules`);
+      expect(req.request.params.has('status')).toBe(false);
+      req.flush(buildPage([]));
+    });
+
+    it('sends the status param when provided', () => {
+      service.listSchedules(0, 20, 'ACTIVE').subscribe();
+
+      const req = httpMock.expectOne(r => r.url === `${BASE_URL}/schedules`);
+      expect(req.request.params.get('status')).toBe('ACTIVE');
       req.flush(buildPage([]));
     });
 

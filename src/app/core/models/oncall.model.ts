@@ -6,12 +6,28 @@ export type OncallRole = 'PRIMARY' | 'SECONDARY' | 'MANAGER';
 export const ONCALL_ROLES: OncallRole[] = ['PRIMARY', 'SECONDARY', 'MANAGER'];
 
 /**
+ * Mirrors backend OncallScheduleStatus.java exactly — three states, not
+ * a boolean active/inactive: ACTIVE, SUPERSEDED (replaced by a newer
+ * entry — backlog #43), and CANCELLED (soft-deleted — backlog #44).
+ * Non-ACTIVE rows are kept indefinitely for history, not purged.
+ */
+export type OncallScheduleStatus = 'ACTIVE' | 'SUPERSEDED' | 'CANCELLED';
+
+/**
  * Mirrors backend OncallScheduleDto.
  *
  * teamId is nullable — null means a tenant-wide schedule entry (not
  * scoped to a specific team). Requires the OncallScheduleDto backend
  * patch adding this field; without it, teamId is always undefined in
  * real responses even though the type says otherwise.
+ *
+ * Fixed: status/supersedesId were missing entirely, though
+ * OncallScheduleDto has sent both since backlog #43. Without status,
+ * the schedules table showed every row — ACTIVE, SUPERSEDED, and
+ * CANCELLED — identically, with no way to tell a currently-effective
+ * entry from historical noise, and a Delete button that could be
+ * clicked on an already-removed/replaced row. supersedesId is null
+ * unless this row itself replaced an older one.
  */
 export interface OncallSchedule {
   id: string;
@@ -27,6 +43,8 @@ export interface OncallSchedule {
   endsAt: string;
   notes: string | null;
   createdAt: string;
+  status: OncallScheduleStatus;
+  supersedesId: string | null;
 }
 
 /**

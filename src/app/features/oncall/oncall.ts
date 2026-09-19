@@ -13,6 +13,7 @@ import { TeamService } from '../../core/services/team.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { ApiError } from '../../core/errors/api-error';
 import {
   OncallSchedule,
   OncallScheduleStatus,
@@ -267,13 +268,9 @@ export class Oncall implements OnInit {
           this.loadCurrentOncall(teamId);
         }
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.createLoading.set(false);
-        if (err.status === 409) {
-          this.toast.error('This overlaps an existing schedule for the same role and period');
-        } else {
-          this.toast.error('Failed to create on-call schedule');
-        }
+        this.toast.error(this.humanizeCreateScheduleError(err));
       }
     });
   }
@@ -353,6 +350,19 @@ export class Oncall implements OnInit {
 
   trackByUserId(_index: number, current: CurrentOncall): string {
     return `${current.userId}-${current.role}`;
+  }
+
+  /**
+   * Fixed: this handler previously typed its error parameter as
+   * { status?: number } — see teams.ts's own comment on this same fix
+   * for the full reasoning. Matches mfa-settings.ts's own
+   * humanize*Error pattern.
+   */
+  private humanizeCreateScheduleError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'This overlaps an existing schedule for the same role and period';
+    }
+    return 'Failed to create on-call schedule';
   }
 }
 

@@ -6,6 +6,7 @@ import { Integrations } from './integrations';
 import { IntegrationService } from '../../../core/services/integration.service';
 import { TeamService } from '../../../core/services/team.service';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { ApiError } from '../../../core/errors/api-error';
 import {
   ApiKey,
   ApiKeyCreatedResponse,
@@ -230,9 +231,17 @@ describe('Integrations', () => {
       expect(component.newTokenModal()?.rawToken).toBe('ipl_the_real_key');
     });
 
+    /**
+     * The actual regression test for backlog #14: this must throw a
+     * real ApiError, not a plain { status: 404 } object — the fixed
+     * handler checks `err instanceof ApiError`, which a plain object
+     * literal (however status-shaped) does not satisfy. Confirms the
+     * fix's own new type guard actually recognizes the error
+     * errorInterceptor genuinely throws.
+     */
     it('shows "Team not found" on a 404', () => {
       mockIntegrationService.createIntegration.mockReturnValue(
-        throwError(() => ({ status: 404 })));
+        throwError(() => new ApiError('Not Found', 404)));
 
       component.integrationForm.setValue({
         name: 'Prometheus', source: 'prometheus', teamId: 'team-1',
@@ -244,7 +253,7 @@ describe('Integrations', () => {
 
     it('shows a generic error toast on any other failure', () => {
       mockIntegrationService.createIntegration.mockReturnValue(
-        throwError(() => ({ status: 500 })));
+        throwError(() => new ApiError('Server Error', 500)));
 
       component.integrationForm.setValue({
         name: 'Prometheus', source: 'prometheus', teamId: 'team-1',

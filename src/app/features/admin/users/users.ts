@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UserService } from '../../../core/services/user.service';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { ApiError } from '../../../core/errors/api-error';
 import { User, CreateUserRequest, USER_ROLES } from '../../../core/models/user.model';
 import { PageResponse } from '../../../core/models/incident.model';
 
@@ -105,13 +106,9 @@ export class Users implements OnInit {
         this.toast.success(`Invite sent to ${email}`);
         this.loadUsers();
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.inviteLoading.set(false);
-        if (err.status === 409) {
-          this.toast.error('A user with this email already exists in this organisation');
-        } else {
-          this.toast.error('Failed to send invite');
-        }
+        this.toast.error(this.humanizeInviteError(err));
       }
     });
   }
@@ -157,12 +154,8 @@ export class Users implements OnInit {
   resendInvite(user: User): void {
     this.userService.resendInvite(user.id).subscribe({
       next: () => this.toast.success(`Invite resent to ${user.email}`),
-      error: (err: { status?: number }) => {
-        if (err.status === 409) {
-          this.toast.error('Invite already accepted or dispatch pending — try again in 30 seconds');
-        } else {
-          this.toast.error('Failed to resend invite');
-        }
+      error: (err: unknown) => {
+        this.toast.error(this.humanizeResendInviteError(err));
       }
     });
   }
@@ -184,13 +177,9 @@ export class Users implements OnInit {
         this.toast.success(`${user.email} archived`);
         this.loadUsers();
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.confirmingArchive.set(null);
-        if (err.status === 403) {
-          this.toast.error('You cannot archive your own account');
-        } else {
-          this.toast.error('Failed to archive user');
-        }
+        this.toast.error(this.humanizeArchiveError(err));
       }
     });
   }
@@ -222,13 +211,9 @@ export class Users implements OnInit {
         this.toast.success(`${user.email} anonymized (GDPR erasure)`);
         this.loadUsers();
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.confirmingAnonymize.set(null);
-        if (err.status === 409) {
-          this.toast.error('User must be archived before anonymization');
-        } else {
-          this.toast.error('Failed to anonymize user');
-        }
+        this.toast.error(this.humanizeAnonymizeError(err));
       }
     });
   }
@@ -256,5 +241,40 @@ export class Users implements OnInit {
 
   trackByUserId(_index: number, user: User): string {
     return user.id;
+  }
+
+  /**
+   * Fixed: these four handlers previously typed their error parameter
+   * as { status?: number } — see teams.ts's own comment on this same
+   * fix for the full reasoning (that type happened to be satisfied by
+   * errorInterceptor's real ApiError, but the compiler never verified
+   * it). Matches mfa-settings.ts's own humanize*Error pattern.
+   */
+  private humanizeInviteError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'A user with this email already exists in this organisation';
+    }
+    return 'Failed to send invite';
+  }
+
+  private humanizeResendInviteError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'Invite already accepted or dispatch pending — try again in 30 seconds';
+    }
+    return 'Failed to resend invite';
+  }
+
+  private humanizeArchiveError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 403) {
+      return 'You cannot archive your own account';
+    }
+    return 'Failed to archive user';
+  }
+
+  private humanizeAnonymizeError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'User must be archived before anonymization';
+    }
+    return 'Failed to anonymize user';
   }
 }

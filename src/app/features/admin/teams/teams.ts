@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { TeamService } from '../../../core/services/team.service';
 import { UserService } from '../../../core/services/user.service';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { ApiError } from '../../../core/errors/api-error';
 import {
   Team,
   TeamMember,
@@ -145,13 +146,9 @@ export class Teams implements OnInit {
         this.toast.success(`Team "${name}" created`);
         this.loadTeams();
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.createLoading.set(false);
-        if (err.status === 409) {
-          this.toast.error('A team with this name already exists');
-        } else {
-          this.toast.error('Failed to create team');
-        }
+        this.toast.error(this.humanizeCreateTeamError(err));
       }
     });
   }
@@ -223,13 +220,9 @@ export class Teams implements OnInit {
         this.toast.success('Member added');
         this.loadMembers(teamId);
       },
-      error: (err: { status?: number }) => {
+       error: (err: unknown) => {
         this.addMemberLoading.set(false);
-        if (err.status === 409) {
-          this.toast.error('User is already a member of this team');
-        } else {
-          this.toast.error('Failed to add member');
-        }
+        this.toast.error(this.humanizeAddMemberError(err));
       }
     });
   }
@@ -301,5 +294,31 @@ export class Teams implements OnInit {
 
   trackByUserId(_index: number, member: TeamMember): string {
     return member.userId;
+  }
+
+  /**
+   * Fixed: this handler previously typed its error parameter as
+   * { status?: number } — a type errorInterceptor's real ApiError
+   * happens to satisfy today, but that's a coincidence the compiler
+   * never verified, not a guarantee. err.status === 409 worked in
+   * practice only because ApiError genuinely has that field; nothing
+   * enforced it. Matches mfa-settings.ts's own humanize*Error pattern
+   * (unknown parameter, instanceof ApiError check) — extracted into its
+   * own method for the same reason that file's humanizeSetupError is,
+   * despite being a single condition: keeps the subscribe callback
+   * itself free of branching logic.
+   */
+  private humanizeCreateTeamError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'A team with this name already exists';
+    }
+    return 'Failed to create team';
+  }
+
+  private humanizeAddMemberError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 409) {
+      return 'User is already a member of this team';
+    }
+    return 'Failed to add member';
   }
 }

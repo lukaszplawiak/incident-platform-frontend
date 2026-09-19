@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { IntegrationService } from '../../../core/services/integration.service';
 import { TeamService } from '../../../core/services/team.service';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { ApiError } from '../../../core/errors/api-error';
 import {
   ApiKey,
   Integration,
@@ -222,13 +223,9 @@ export class Integrations implements OnInit {
         this.showNewToken(response.name, response.apiKey, null);
         this.loadAll();
       },
-      error: (err: { status?: number }) => {
+      error: (err: unknown) => {
         this.integrationLoading.set(false);
-        if (err.status === 404) {
-          this.toast.error('Team not found');
-        } else {
-          this.toast.error('Failed to create integration');
-        }
+        this.toast.error(this.humanizeCreateIntegrationError(err));
       }
     });
   }
@@ -323,5 +320,18 @@ export class Integrations implements OnInit {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + days);
     return expiry.toISOString();
+  }
+
+  /**
+   * Fixed: this handler previously typed its error parameter as
+   * { status?: number } — see teams.ts's own comment on this same fix
+   * for the full reasoning. Matches mfa-settings.ts's own
+   * humanize*Error pattern.
+   */
+  private humanizeCreateIntegrationError(err: unknown): string {
+    if (err instanceof ApiError && err.status === 404) {
+      return 'Team not found';
+    }
+    return 'Failed to create integration';
   }
 }

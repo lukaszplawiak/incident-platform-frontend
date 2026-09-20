@@ -22,7 +22,11 @@ A real-time incident management dashboard that consumes the Incident Platform RE
 - **Real-time dashboard** — incident list updated live via STOMP over WebSocket, automatic fallback to polling when WebSocket is offline
 - **Incident lifecycle** — acknowledge and resolve incidents with optimistic UI updates and automatic rollback on error
 - **Filtering and pagination** — filter by severity and status, server-side sort by severity, title, status or age, server-side pagination
-- **Incident detail** — audit log timeline and AI-generated postmortem draft per incident
+- **Incident detail** — audit log timeline and AI-generated postmortem draft (summary, timeline, root cause, impact, resolution, action items, lessons learned) per incident
+- **Escalation visibility** — independent escalation-level badge, separate from the lifecycle status badge
+- **Authentication & account security** — email/password/tenant login, TOTP-based two-factor authentication (setup, verification, backup codes), invite acceptance, self-service forgot/reset password
+- **Admin panels** — user management (invite, roles, deactivate/restore), team management (members, roles), API key / integration management, tenant-wide settings (e.g. enforce MFA for all users) — all gated behind `ROLE_ADMIN`
+- **On-call scheduling** — view and manage on-call rotations per team
 - **Session management** — dual logout mechanism: token expiry timer + idle detection with countdown warning and extend option
 - **Toast notifications** — feedback for every state change, error, and WebSocket connection event
 
@@ -33,19 +37,40 @@ A real-time incident management dashboard that consumes the Incident Platform RE
 ```
 src/app/
 ├── core/                          # Application-wide singletons
-│   ├── guards/                    # authGuard — CanActivateFn
+│   ├── guards/                    # authGuard (authenticated), adminGuard (ROLE_ADMIN)
 │   ├── handlers/                  # GlobalErrorHandler — unhandled errors → /error
 │   ├── interceptors/              # authInterceptor, errorInterceptor
-│   ├── models/                    # TypeScript interfaces (domain types)
+│   ├── errors/                    # ApiError — typed HTTP error carrying the real status code
+│   ├── models/                    # TypeScript interfaces (domain types, mirror backend DTOs)
 │   └── services/
-│       ├── auth.service.ts        # JWT decode, Signals state, token expiry timer
-│       ├── incident.service.ts    # Signals state management + HTTP + server-side sort
-│       ├── websocket.service.ts   # STOMP client, reconnect, event routing
-│       ├── idle.service.ts        # Activity monitoring, idle timeout
-│       └── logger.service.ts     # Leveled console logger (DEBUG/INFO/WARN/ERROR)
+│       ├── auth.service.ts            # JWT decode, Signals state, token expiry timer
+│       ├── incident.service.ts        # Signals state management + HTTP + server-side sort
+│       ├── websocket.service.ts       # STOMP client, reconnect, event routing
+│       ├── stomp-client-factory.ts    # Injectable STOMP client factory (test seam)
+│       ├── idle.service.ts            # Activity monitoring, idle timeout
+│       ├── logger.service.ts          # Leveled console logger (DEBUG/INFO/WARN/ERROR)
+│       ├── user.service.ts            # Admin: list/invite/deactivate users, roles
+│       ├── team.service.ts            # Admin: teams + team members
+│       ├── integration.service.ts     # Admin: API keys / integrations
+│       ├── tenant-settings.service.ts # Admin: tenant-wide settings (e.g. mfaRequired)
+│       └── oncall.service.ts          # On-call schedules
 │
 ├── features/
-│   ├── auth/login/                # Login form — token input
+│   ├── auth/
+│   │   ├── login/                 # Login form — email + password + tenantId
+│   │   ├── mfa-verify/            # TOTP / backup-code verification step
+│   │   ├── mfa-setup-required/    # Forced MFA enrollment (tenant requires it)
+│   │   ├── accept-invite/         # Sets initial password from an invite token
+│   │   ├── forgot-password/       # Requests a password-reset email
+│   │   └── reset-password/        # Sets a new password from a reset token
+│   ├── account/
+│   │   └── mfa-settings/          # Self-service MFA setup/disable, backup codes
+│   ├── admin/                     # ROLE_ADMIN-only, behind adminGuard
+│   │   ├── users/                 # Invite/deactivate/restore users, assign roles
+│   │   ├── teams/                 # Create teams, manage members
+│   │   ├── integrations/          # API keys — create/revoke, scopes
+│   │   └── tenant-settings/       # Tenant-wide settings (e.g. require MFA)
+│   ├── oncall/                    # On-call schedule view/management
 │   ├── errors/                    # /error and /forbidden pages
 │   └── incidents/
 │       ├── dashboard/             # Main view — orchestrates all children
@@ -58,10 +83,13 @@ src/app/
 │       └── incident-postmortem/   # Postmortem tab
 │
 └── shared/
-    └── components/
-        ├── severity-badge/        # input.required<T>() + computed CSS class
-        ├── status-badge/          # input.required<T>() + computed CSS class
-        └── toast/                 # Notification overlay service + component
+    ├── components/
+    │   ├── severity-badge/        # input.required<T>() + computed CSS class
+    │   ├── status-badge/          # input.required<T>() + computed CSS class
+    │   ├── escalation-badge/      # Escalation level, independent of status
+    │   └── toast/                 # Notification overlay service + component
+    └── utils/
+        └── format-duration.ts     # Shared minutes → "2d 2h 15m" formatting (age, duration, MTTA/MTTR)
 ```
 
 ### State Management
@@ -122,15 +150,19 @@ This means backend FSM changes propagate automatically to the UI without any fro
 ### WebSocket Flow
 
 ```
-STOMP connect → subscribe /topic/incidents/{tenantId}
+STOMP connect (native header: Authorization: Bearer <token>)
       │
-      ├── INCIDENT_CREATED   → incidentService.addIncident()
-      └── INCIDENT_UPDATED / INCIDENT_STATUS_CHANGED → incidentService.updateIncident()
+      └── subscribe /topic/incidents/{tenantId}
+                │
+                ├── INCIDENT_CREATED   → incidentService.addIncident()
+                └── INCIDENT_UPDATED / INCIDENT_STATUS_CHANGED → incidentService.updateIncident()
 
 Disconnected → exponential backoff reconnect (1s → 2s → 4s → max 30s)
              → fallback to HTTP polling every 30s
              → visual indicator: Connected / Reconnecting / Offline
 ```
+
+The access token is sent as a STOMP native header on `CONNECT` (not as a query param), matching the backend's `ChannelInterceptor`-based authentication on the WebSocket endpoint.
 
 ---
 
@@ -150,6 +182,9 @@ Client-side sorting (Array.sort) operates only on the current page. With server-
 
 **Why `allowedTransitions` from the backend instead of local FSM rules?**
 The backend defines the FSM. Duplicating transition rules in the frontend creates two sources of truth that can diverge silently — if the backend adds a new transition or removes one, the frontend would show incorrect action buttons. Using `allowedTransitions` from the API response makes the UI automatically correct regardless of FSM changes.
+
+**Why a separate `adminGuard` instead of a role check inside `authGuard`?**
+`authGuard` answers one question — is there a valid session at all — and is used on every protected route. `adminGuard` answers a different question — does this authenticated user have `ROLE_ADMIN` — and is only relevant to `/admin/**`. Keeping them separate keeps each guard's intent explicit at the route definition and avoids a single guard branching on route metadata.
 
 **Why two independent logout timers?**
 `AuthService.autoLogoutTimer` handles absolute token expiry — it fires at `min(tokenExpiry, inactivityTimeout)` and is reset on every authenticated HTTP request. `IdleService.idleTimer` handles inactivity — it fires after a period with no user interaction events and is reset on every mouse/keyboard/touch event. Either can fire first. Both call `authService.logout()` — the second call is a safe no-op because `logout()` clears the token and navigates to `/login`.
@@ -178,6 +213,7 @@ Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test r
 | Real-time | STOMP over WebSocket (`@stomp/stompjs`) | Pub/sub topics, tenant-scoped subscriptions |
 | HTTP | Angular `HttpClient`, functional interceptors | Composable auth and error handling without class decorators |
 | Forms | Angular Reactive Forms | Typed form controls, `valueChanges` stream for filter debounce |
+| MFA | `qrcode` | Renders the TOTP enrollment QR code client-side from the backend's `otpauth://` URI |
 | Change Detection | `OnPush` on all list components | Prevents unnecessary re-renders in large incident lists |
 | Signal Inputs | `input.required<T>()` on all leaf components | Reactive, type-safe, consistent — no `@Input()` decorator pattern |
 | Testing | Vitest 4 via `@angular/build:unit-test` | Fast Node.js runner, no browser launch, Jest-compatible API |
@@ -211,6 +247,12 @@ Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test r
 - **HTTP 401**: clears session and redirects to login
 - **HTTP 403**: redirects to `/forbidden` page
 
+### Authorization & Route Protection
+
+- **`authGuard`**: blocks any unauthenticated access to a protected route, redirecting to `/login`
+- **`adminGuard`**: additionally requires `ROLE_ADMIN` on every `/admin/**` route — an authenticated non-admin is redirected to `/forbidden` rather than `/login`
+- **Two-factor authentication**: TOTP setup/verification with backup codes; a tenant can require MFA for all its users (`TenantSettings.mfaRequired`), enforced by the backend and surfaced by the frontend as a forced-setup step on first login
+
 ### Application Security
 
 - **`GlobalErrorHandler`**: catches all unhandled Angular errors and redirects to `/error` — no raw stack traces exposed to the user
@@ -225,7 +267,7 @@ Vitest runs in Node.js with jsdom — no browser launch, no Karma server. Test r
 ### Prerequisites
 
 - Node.js 20+
-- Running [Incident Platform backend](https://github.com/lukaszplawiak/incident-platform) — see backend README for setup instructions
+- Running [Incident Platform backend](https://github.com/lukaszplawiak/incident-platform) — see backend README for setup instructions (Postgres, Flyway migrations, and the microservices themselves)
 
 ### Step 1 — Install dependencies
 
@@ -241,14 +283,26 @@ ng serve
 npm start
 ```
 
-App runs at `http://localhost:4200`. API calls are proxied to the backend services:
-- `http://localhost:8081` — ingestion-service (auth token endpoint)
-- `http://localhost:8082` — incident-service (incidents, WebSocket)
-- `http://localhost:8086` — oncall-service
+App runs at `http://localhost:4200`. API calls go to the backend services configured in `environment.ts`:
+- `http://localhost:8087` — auth-service (login, refresh, MFA, users, teams, API keys, tenant settings)
+- `http://localhost:8082` — incident-service (incidents, audit log, WebSocket)
+- `http://localhost:8086` — oncall-service (on-call schedules)
 
 ### Step 3 — Log in
 
-Generate a dev token from the backend (local profile only):
+The backend seeds a bootstrap admin user on first startup (Flyway migration `V1_1__seed_admin_user`), so there's a working account immediately — no manual signup step:
+
+| Field | Default value |
+|---|---|
+| Email | `admin@incidentplatform.com` |
+| Password | `changeme` |
+| Organisation (tenant) | `default` |
+
+Open `http://localhost:4200/login` and sign in with those values (the login form pre-fills the Organisation field with `default`). These defaults can be overridden per-deployment via the backend's `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_TENANT_ID` environment variables — see the backend README.
+
+> Rotate the seeded password immediately after first login (`/mfa-settings` for MFA, or the account's change-password flow). Additional users are **not** self-registered: an admin invites them from **Admin → Users**, and the invited user sets their own password via the emailed invite link (`/accept-invite`).
+
+For calling the REST API directly (curl/Postman) without going through the login form, the backend also exposes a local-profile-only `/dev/token` endpoint on incident-service:
 
 ```bash
 curl -s "http://localhost:8082/dev/token?\
@@ -258,9 +312,7 @@ userId=11111111-1111-1111-1111-111111111111\
 &roles=ROLE_ADMIN" | jq -r .token
 ```
 
-Copy the token and paste it into the login form at `http://localhost:4200/login`.
-
-> In local dev the login form pre-fills `userId` and `tenantId` from `environment.devDefaults` for convenience. These values are absent in the production environment — the form starts empty.
+This is a raw-JWT shortcut for API testing only — the login form itself has no token field and never accepts one.
 
 ### Step 4 — Build for production
 
@@ -331,6 +383,8 @@ ng test --watch=false --include="**/auth.service.spec.ts"
 
 Unit tests cover business logic — not templates, not CSS, not Angular internals.
 
+**Core services & infrastructure**
+
 | Test | What it covers |
 |---|---|
 | `auth.service.spec.ts` | JWT decode, Signal state, auto-logout timer, session expiry |
@@ -338,15 +392,36 @@ Unit tests cover business logic — not templates, not CSS, not Angular internal
 | `websocket.service.spec.ts` | STOMP mock, connection states, event routing, reconnect logic, invalid message handling |
 | `idle.service.spec.ts` | Timer logic, activity detection, countdown |
 | `logger.service.spec.ts` | Log level filtering — DEBUG suppressed in production |
+| `user.service.spec.ts` | Admin user CRUD/invite HTTP calls |
+| `team.service.spec.ts` | Team + team-member HTTP calls |
+| `integration.service.spec.ts` | API key list/create/revoke HTTP calls |
+| `tenant-settings.service.spec.ts` | Tenant settings get/update HTTP calls |
+| `oncall.service.spec.ts` | On-call schedule list/create HTTP calls |
 | `auth.guard.spec.ts` | `UrlTree` redirect vs boolean return |
 | `auth.interceptor.spec.ts` | Bearer token attachment, external URL exclusion, timer reset on authenticated requests |
 | `error.interceptor.spec.ts` | Retry logic for 503 and network errors, 401/403 side effects, user-friendly messages for all status codes |
+| `format-duration.spec.ts` | Minutes → human-readable string, including day rollover |
+
+**Feature components**
+
+| Test | What it covers |
+|---|---|
+| `login.spec.ts` | Submit flow, validation, MFA-required/MFA-setup-required branches, error mapping |
+| `mfa-verify.spec.ts` | Verification with router-state token present/missing |
+| `mfa-setup-required.spec.ts` | Forced-enrollment flow with router-state token present/missing |
+| `mfa-settings.spec.ts` | Self-service setup/disable flow, initial load |
+| `accept-invite.spec.ts` | Invite-token acceptance, missing-token guard |
+| `forgot-password.spec.ts` | Reset-request submission |
+| `reset-password.spec.ts` | Reset-token submission, missing-token guard |
+| `dashboard.spec.ts` | Filter/sort/page orchestration |
+| `incident-detail.spec.ts` | Detail load, tab wiring |
 | `severity-badge.spec.ts` | Signal `input.required` + `computed()` CSS class outputs |
 | `status-badge.spec.ts` | Signal `input.required` + `computed()` CSS class outputs |
+| `error.spec.ts` / `forbidden.spec.ts` | Static error pages render |
 
 **Tools**: Vitest 4 · `HttpTestingController` for HTTP · `vi.useFakeTimers()` for timers · `vi.mock()` for STOMP client
 
-**Not unit tested** (covered by backend E2E or manual): dashboard composition, template rendering, routing integration.
+**Not unit tested** (covered by backend E2E or manual): full template rendering, routing integration end-to-end, the admin list/detail page components (`users`, `teams`, `integrations`, `tenant-settings`), `incident-list`/`incident-filter`/`incident-pagination`/`incident-row`/`incident-audit`/`incident-postmortem`, `oncall`, and `adminGuard` — these currently have no dedicated spec file.
 
 ---
 
@@ -358,31 +433,59 @@ incident-platform-frontend/
 │   ├── app/
 │   │   ├── app.ts                 # Root component
 │   │   ├── app.config.ts          # provideRouter, provideHttpClient, interceptors, GlobalErrorHandler
-│   │   ├── app.routes.ts          # Lazy-loaded routes: /login, /incidents, /incidents/:id, /error, /forbidden
+│   │   ├── app.routes.ts          # Lazy-loaded routes — public auth routes, protected /incidents,
+│   │   │                          # ROLE_ADMIN-only /admin/**, /mfa-settings, error routes
 │   │   │
 │   │   ├── core/
 │   │   │   ├── guards/
-│   │   │   │   └── auth.guard.ts              # Redirects unauthenticated users to /login
+│   │   │   │   ├── auth.guard.ts              # Redirects unauthenticated users to /login
+│   │   │   │   └── admin.guard.ts             # Requires ROLE_ADMIN, else redirects to /forbidden
 │   │   │   ├── handlers/
 │   │   │   │   └── global-error.handler.ts    # Catches unhandled errors → /error
 │   │   │   ├── interceptors/
 │   │   │   │   ├── auth.interceptor.ts        # Attaches Bearer token to backend requests only
 │   │   │   │   └── error.interceptor.ts       # Retry, 401/403 redirect, user-friendly messages
+│   │   │   ├── errors/
+│   │   │   │   └── api-error.ts               # ApiError — Error subclass carrying the real HTTP status
 │   │   │   ├── models/
-│   │   │   │   ├── incident.model.ts          # Incident (with allowedTransitions), IncidentFilter (with sort params)
-│   │   │   │   ├── audit-event.model.ts       # AuditEvent, AuditEventType
-│   │   │   │   ├── postmortem.model.ts        # Postmortem, PostmortemStatus
-│   │   │   │   └── auth.model.ts              # AuthResponse, JwtPayload
+│   │   │   │   ├── incident.model.ts          # Incident (mirrors backend IncidentDto), IncidentFilter
+│   │   │   │   ├── audit-event.model.ts       # AuditEvent, AuditEventType, ActorType
+│   │   │   │   ├── postmortem.model.ts        # Postmortem (structured fields), PostmortemStatus
+│   │   │   │   ├── auth.model.ts              # LoginRequest/Response, MFA request/response types
+│   │   │   │   ├── user.model.ts              # User, UserRole, invite/role-update requests
+│   │   │   │   ├── team.model.ts              # Team, TeamMember, TeamRole
+│   │   │   │   ├── integration.model.ts       # ApiKey, ApiKeyScope, ApiKeyType
+│   │   │   │   ├── tenant-settings.model.ts   # TenantSettings (mfaRequired)
+│   │   │   │   └── oncall.model.ts            # OncallSchedule, OncallRole
 │   │   │   └── services/
-│   │   │       ├── auth.service.ts            # JWT parse, isAuthenticated signal, dual logout timer
+│   │   │       ├── auth.service.ts            # JWT parse, isAuthenticated/isAdmin signals, dual logout timer
 │   │   │       ├── incident.service.ts        # incidents signal, HTTP CRUD, optimistic update, server-side sort
 │   │   │       ├── websocket.service.ts       # STOMP connect/reconnect, tenant subscription, backoff
+│   │   │       ├── stomp-client-factory.ts    # Wraps @stomp/stompjs client construction for testability
 │   │   │       ├── idle.service.ts            # Inactivity timer, session extension
-│   │   │       └── logger.service.ts          # Leveled logger — WARN level in production
+│   │   │       ├── logger.service.ts          # Leveled logger — WARN level in production
+│   │   │       ├── user.service.ts            # Admin: users
+│   │   │       ├── team.service.ts            # Admin: teams
+│   │   │       ├── integration.service.ts     # Admin: API keys
+│   │   │       ├── tenant-settings.service.ts # Admin: tenant settings
+│   │   │       └── oncall.service.ts          # On-call schedules
 │   │   │
 │   │   ├── features/
-│   │   │   ├── auth/login/
-│   │   │   │   └── login.ts                   # Token input form, dev defaults from environment
+│   │   │   ├── auth/
+│   │   │   │   ├── login/                     # Email + password + tenantId form
+│   │   │   │   ├── mfa-verify/                # TOTP / backup-code verification
+│   │   │   │   ├── mfa-setup-required/        # Forced MFA enrollment
+│   │   │   │   ├── accept-invite/             # Set password from invite link
+│   │   │   │   ├── forgot-password/           # Request reset email
+│   │   │   │   └── reset-password/            # Set new password from reset link
+│   │   │   ├── account/
+│   │   │   │   └── mfa-settings/              # Self-service MFA setup/disable, backup codes
+│   │   │   ├── admin/
+│   │   │   │   ├── users/                     # Invite/deactivate/restore, roles
+│   │   │   │   ├── teams/                     # Teams + members
+│   │   │   │   ├── integrations/              # API keys
+│   │   │   │   └── tenant-settings/           # Tenant-wide settings
+│   │   │   ├── oncall/                        # On-call schedule view/management
 │   │   │   ├── errors/
 │   │   │   │   ├── error/error.ts             # Generic error page
 │   │   │   │   └── forbidden/forbidden.ts     # HTTP 403 page
@@ -397,14 +500,17 @@ incident-platform-frontend/
 │   │   │       └── incident-postmortem/       # Postmortem draft display
 │   │   │
 │   │   └── shared/
-│   │       └── components/
-│   │           ├── severity-badge/            # CRITICAL/HIGH/MEDIUM/LOW — input.required + computed
-│   │           ├── status-badge/              # OPEN/ACKNOWLEDGED/RESOLVED/CLOSED — input.required + computed
-│   │           └── toast/                     # Toast service + overlay component
+│   │       ├── components/
+│   │       │   ├── severity-badge/            # CRITICAL/HIGH/MEDIUM/LOW — input.required + computed
+│   │       │   ├── status-badge/              # OPEN/ACKNOWLEDGED/RESOLVED/CLOSED — input.required + computed
+│   │       │   ├── escalation-badge/          # Escalation level, independent of status
+│   │       │   └── toast/                     # Toast service + overlay component
+│   │       └── utils/
+│   │           └── format-duration.ts         # Shared minutes → "2d 2h 15m" formatting
 │   │
 │   ├── environments/
-│   │   ├── environment.ts         # Development: API URLs, log level DEBUG, devDefaults for login form
-│   │   └── environment.prod.ts    # Production: API URLs, log level WARN — no devDefaults
+│   │   ├── environment.ts         # Development: apiUrl / authApiUrl / oncallApiUrl, log level DEBUG
+│   │   └── environment.prod.ts    # Production: same URLs pointing at the prod origin, log level WARN
 │   └── styles.scss                # Global styles
 │
 ├── Dockerfile                     # Multi-stage: Node 20 builder + Nginx Alpine runtime (~50MB)
